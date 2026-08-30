@@ -1,0 +1,17 @@
+{
+  "source": "User-supplied Bigger Brew menu image",
+  "regularMenuItemsPriced": 61,
+  "foodItemsPriced": 12,
+  "hotCoffeeOneSize": true,
+  "upsizing": {
+    "goBig": 10,
+    "goBigger": 40
+  },
+  "unpricedCatalogProducts": [
+    "blueberry_slushies",
+    "green_apple_slushies",
+    "lychee_slushies",
+    "strawberry_slushies"
+  ],
+  "note": "Slushies were not assigned prices because the supplied menu image does not show a Slushies section."
+}
