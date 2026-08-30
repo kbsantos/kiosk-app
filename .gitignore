@@ -1,5 +1,38 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub/
 build/
-ios/
-linux/
-macos/
-windows/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# Android
+.gradle/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/.cxx/
+
+# iOS
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/ephemeral/
+ios/Flutter/.last_build_id
+
+# macOS
+macos/Pods/
+macos/Flutter/ephemeral/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Generated
+*.log
+.DS_Store
+
+# Coverage
+coverage/
