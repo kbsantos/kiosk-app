@@ -7,6 +7,7 @@ import '../settings/kiosk_settings_page.dart';
 import 'kiosk_catalog_manager_page.dart';
 import 'kiosk_staff_gate.dart';
 import '../orders/kiosk_order_repository.dart';
+import '../../reporting_sync/reporting_sync_page.dart';
 
 class KioskStaffToolsPage extends StatelessWidget {
   const KioskStaffToolsPage({super.key});
@@ -235,6 +236,12 @@ class KioskStaffToolsPage extends StatelessWidget {
           title: 'SYNC HISTORICAL DRINKS',
           subtitle: 'Synchronize historical drink temperatures with the current catalog.',
           onTap: () => _syncHistoricalDrinkTemperatures(context),
+        ),
+        _StaffActionData(
+          icon: Icons.cloud_sync_outlined,
+          title: 'REPORTING SYNC',
+          subtitle: 'Manually sync pending kiosk transactions to the reporting database.',
+          onTap: () => _openPage(context, const ReportingSyncPage()),
         ),
         _StaffActionData(
           icon: Icons.inventory_2_outlined,
