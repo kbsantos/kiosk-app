@@ -1,4 +1,4 @@
-# bigger_brew_kiosk
+my_kiosk
 
 A new Flutter project.
 
