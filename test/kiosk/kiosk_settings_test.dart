@@ -7,6 +7,9 @@ void main() {
 
     expect(settings.storeOpen, isTrue);
     expect(settings.storeName, 'BIGGER BREW');
+    expect(settings.emailEnabled, isTrue);
+    expect(settings.storeId, '');
+    expect(settings.deviceId, '');
     expect(settings.printerPaperSize, '58mm');
     expect(settings.employeeOrderMode, isTrue);
     expect(settings.printCustomerReceipt, isTrue);
@@ -23,7 +26,17 @@ void main() {
   test('settings copyWith changes only requested values', () {
     const settings = KioskSettings();
 
-    final closed = settings.copyWith(storeOpen: false);
+    final emailOff = settings.copyWith(emailEnabled: false);
+    expect(emailOff.emailEnabled, isFalse);
+
+    final identified = settings.copyWith(
+      storeId: '11111111-1111-4111-8111-111111111111',
+      deviceId: 'KIOSK-00',
+    );
+    expect(identified.storeId, '11111111-1111-4111-8111-111111111111');
+    expect(identified.deviceId, 'KIOSK-00');
+
+    final closed = identified.copyWith(storeOpen: false);
     expect(closed.storeOpen, isFalse);
     expect(closed.storeName, 'BIGGER BREW');
     expect(closed.printerPaperSize, '58mm');

@@ -4,6 +4,7 @@ import '../../core/config/supabase_config.dart';
 import 'reporting_sync_result.dart';
 import 'reporting_sync_service.dart';
 import 'reporting_sync_status.dart';
+import '../kiosk/settings/kiosk_settings_repository.dart';
 
 /// Production manual reporting sync page.
 ///
@@ -18,8 +19,10 @@ class ReportingSyncPage extends StatefulWidget {
 
 class _ReportingSyncPageState extends State<ReportingSyncPage> {
   final _service = ReportingSyncService();
+  final _settingsRepository = KioskSettingsRepository();
 
   bool _loading = false;
+  late Future<KioskSettings> _settingsFuture;
   late Future<ReportingSyncProgress> _todayFuture;
   late Future<ReportingSyncProgress> _allFuture;
 
@@ -32,6 +35,7 @@ class _ReportingSyncPageState extends State<ReportingSyncPage> {
   void _reload() {
     _todayFuture = _service.getTodayProgress();
     _allFuture = _service.getFullProgress();
+    _settingsFuture = _settingsRepository.load();
   }
 
   Future<void> _refresh() async {
@@ -186,11 +190,20 @@ class _ReportingSyncPageState extends State<ReportingSyncPage> {
                     value: SupabaseConfig.isConfigured ? 'Configured' : 'Not configured',
                   ),
                   const SizedBox(height: 12),
-                  _StatusCard(
-                    label: 'REPORTING STORE / DEVICE',
-                    value: SupabaseConfig.storeId.isNotEmpty && SupabaseConfig.deviceId.isNotEmpty
-                        ? 'Configured'
-                        : 'Missing store or device ID',
+                  FutureBuilder<KioskSettings>(
+                    future: _settingsFuture,
+                    builder: (context, snapshot) {
+                      final settings = snapshot.data;
+                      final configured = settings != null &&
+                          settings.storeId.trim().isNotEmpty &&
+                          settings.deviceId.trim().isNotEmpty;
+                      return _StatusCard(
+                        label: 'REPORTING STORE / DEVICE',
+                        value: configured
+                            ? '${settings.storeId} / ${settings.deviceId}'
+                            : 'Missing Store ID or Device / Kiosk Code',
+                      );
+                    },
                   ),
                   const SizedBox(height: 24),
                   _ProgressSection(

@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 class KioskSettings {
   final bool storeOpen;
   final String storeName;
+  final bool emailEnabled;
+  final String storeId;
+  final String deviceId;
   final String printerPaperSize;
   final String printerConnectionType;
   final String? bluetoothPrinterAddress;
@@ -24,6 +27,9 @@ class KioskSettings {
   const KioskSettings({
     this.storeOpen = true,
     this.storeName = 'BIGGER BREW',
+    this.emailEnabled = true,
+    this.storeId = '',
+    this.deviceId = '',
     this.printerPaperSize = '58mm',
     this.printerConnectionType = 'bluetooth',
     this.bluetoothPrinterAddress,
@@ -46,6 +52,9 @@ class KioskSettings {
   KioskSettings copyWith({
     bool? storeOpen,
     String? storeName,
+    bool? emailEnabled,
+    String? storeId,
+    String? deviceId,
     String? printerPaperSize,
     String? printerConnectionType,
     String? bluetoothPrinterAddress,
@@ -70,6 +79,9 @@ class KioskSettings {
     return KioskSettings(
       storeOpen: storeOpen ?? this.storeOpen,
       storeName: storeName ?? this.storeName,
+      emailEnabled: emailEnabled ?? this.emailEnabled,
+      storeId: storeId ?? this.storeId,
+      deviceId: deviceId ?? this.deviceId,
       printerPaperSize: printerPaperSize ?? this.printerPaperSize,
       printerConnectionType: printerConnectionType ?? this.printerConnectionType,
       bluetoothPrinterAddress: clearBluetoothPrinter
@@ -99,7 +111,10 @@ class KioskSettings {
 
 class KioskSettingsRepository {
   static const _storeOpenKey = 'bigger_brew_kiosk.settings.store_open.v1';
+  static const _emailEnabledKey = 'bigger_brew_kiosk.settings.email_enabled.v1';
   static const _storeNameKey = 'bigger_brew_kiosk.settings.store_name.v1';
+  static const _storeIdKey = 'bigger_brew_kiosk.settings.store_id.v1';
+  static const _deviceIdKey = 'bigger_brew_kiosk.settings.device_id.v1';
   static const _paperSizeKey = 'bigger_brew_kiosk.settings.paper_size.v1';
   static const _printerConnectionTypeKey =
       'bigger_brew_kiosk.settings.printer_connection_type.v1';
@@ -138,6 +153,9 @@ class KioskSettingsRepository {
     return KioskSettings(
       storeOpen: prefs.getBool(_storeOpenKey) ?? true,
       storeName: prefs.getString(_storeNameKey) ?? 'BIGGER BREW',
+      emailEnabled: prefs.getBool(_emailEnabledKey) ?? true,
+      storeId: prefs.getString(_storeIdKey) ?? '',
+      deviceId: prefs.getString(_deviceIdKey) ?? '',
       printerPaperSize: prefs.getString(_paperSizeKey) ?? '58mm',
       printerConnectionType:
           prefs.getString(_printerConnectionTypeKey) ?? 'bluetooth',
@@ -175,6 +193,20 @@ class KioskSettingsRepository {
       _storeNameKey,
       name.isEmpty ? 'BIGGER BREW' : name,
     );
+  }
+
+  Future<void> setEmailEnabled(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_emailEnabledKey, value);
+  }
+
+  Future<void> setReportingIdentity({
+    required String storeId,
+    required String deviceId,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storeIdKey, storeId.trim());
+    await prefs.setString(_deviceIdKey, deviceId.trim());
   }
 
   Future<void> setEmployeeOrderMode(bool value) async {

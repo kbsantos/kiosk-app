@@ -137,6 +137,57 @@ class KioskOrderRepository {
     );
   }
 
+  /// Adds restored transactions without overwriting any existing local
+  /// transaction with the same external transaction ID.
+  ///
+  /// Returns the number of newly stored orders.
+  Future<int> restoreOrders(List<KioskOrder> restoredOrders) async {
+    if (restoredOrders.isEmpty) return 0;
+
+    final existing = await getOrders();
+    final existingIds = existing.map((order) => order.id).toSet();
+    final toAdd = <KioskOrder>[];
+
+    for (final order in restoredOrders) {
+      if (existingIds.add(order.id)) {
+        toAdd.add(order);
+      }
+    }
+
+    if (toAdd.isEmpty) return 0;
+
+    await _save([...toAdd, ...existing]);
+    await _advanceSequenceForRestoredOrders(toAdd);
+    return toAdd.length;
+  }
+
+  Future<void> _advanceSequenceForRestoredOrders(
+    List<KioskOrder> restoredOrders,
+  ) async {
+    if (restoredOrders.isEmpty) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final today = _dateKey(now);
+    final savedDate = prefs.getString(_sequenceDateKey);
+
+    if (savedDate != today) return;
+
+    var sequence = prefs.getInt(_sequenceKey) ?? 0;
+
+    for (final order in restoredOrders) {
+      if (_dateKey(order.createdAt) != today) continue;
+
+      final match = RegExp(r'^BB-(\d+)$').firstMatch(order.orderNumber.trim());
+      final value = int.tryParse(match?.group(1) ?? '');
+      if (value != null && value > sequence) {
+        sequence = value;
+      }
+    }
+
+    await prefs.setInt(_sequenceKey, sequence);
+  }
+
   Future<List<KioskOrder>> getOrders() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_ordersKey) ?? const [];
