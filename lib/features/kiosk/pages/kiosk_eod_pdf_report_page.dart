@@ -88,7 +88,7 @@ class KioskEodPdfReportPage extends StatelessWidget {
         footer: (c) => pw.Row(
           mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('MyKiosk • END-OF-DAY REPORT',
+            pw.Text('BIGGER BREW • END-OF-DAY REPORT',
                 style:
                     const pw.TextStyle(fontSize: 7, color: PdfColors.grey600)),
             pw.Text('Page ${c.pageNumber} of ${c.pagesCount}',
@@ -135,7 +135,7 @@ class KioskEodPdfReportPage extends StatelessWidget {
             pw.Column(
                 crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
-                  pw.Text('MyKiosk',
+                  pw.Text('BIGGER BREW',
                       style: pw.TextStyle(
                           fontSize: 18, fontWeight: pw.FontWeight.bold)),
                   pw.Text('END-OF-DAY REPORT',
@@ -265,14 +265,12 @@ class KioskEodPdfReportPage extends StatelessWidget {
         if (i.product.productType.toLowerCase() != 'drink') continue;
 
         final name = i.product.name;
-        final map = counts.putIfAbsent(
-            name,
-            () => <String, int>{
-                  'hot12oz': 0,
-                  'iced12oz': 0,
-                  '22oz': 0,
-                  '1L': 0,
-                });
+        final map = counts.putIfAbsent(name, () => <String, int>{
+              'hot12oz': 0,
+              'iced12oz': 0,
+              '22oz': 0,
+              '1L': 0,
+            });
 
         final temperature = i.drinkTemperature?.trim().toLowerCase();
         if (temperature == 'hot') {
@@ -382,6 +380,7 @@ class KioskEodPdfReportPage extends StatelessWidget {
     );
   }
 
+
   bool _isHotCoffee(KioskCartItem item) {
     final groupId = item.product.groupId?.trim().toLowerCase();
     final groupName = item.product.groupName?.trim().toLowerCase();
@@ -479,7 +478,8 @@ class KioskEodPdfReportPage extends StatelessWidget {
     ]));
 
     return pw.Table(
-      border: pw.TableBorder.all(color: PdfColor.fromHex('#D8D1C7'), width: .4),
+      border:
+          pw.TableBorder.all(color: PdfColor.fromHex('#D8D1C7'), width: .4),
       columnWidths: {
         0: const pw.FlexColumnWidth(3),
         1: const pw.FlexColumnWidth(1),
@@ -544,6 +544,7 @@ class KioskEodPdfReportPage extends StatelessWidget {
         ? size.displayVolume!.trim()
         : size.name.trim();
   }
+
 
   String _peso(int value) => KioskCurrency.format(value);
   String _timeLabel(DateTime v) =>

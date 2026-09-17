@@ -26,7 +26,7 @@ class KioskSettings {
 
   const KioskSettings({
     this.storeOpen = true,
-    this.storeName = 'MyKiosk',
+    this.storeName = 'BIGGER BREW',
     this.emailEnabled = true,
     this.storeId = '',
     this.deviceId = '',
@@ -83,8 +83,7 @@ class KioskSettings {
       storeId: storeId ?? this.storeId,
       deviceId: deviceId ?? this.deviceId,
       printerPaperSize: printerPaperSize ?? this.printerPaperSize,
-      printerConnectionType:
-          printerConnectionType ?? this.printerConnectionType,
+      printerConnectionType: printerConnectionType ?? this.printerConnectionType,
       bluetoothPrinterAddress: clearBluetoothPrinter
           ? null
           : (bluetoothPrinterAddress ?? this.bluetoothPrinterAddress),
@@ -102,8 +101,7 @@ class KioskSettings {
       printSingleItemPerTicket:
           printSingleItemPerTicket ?? this.printSingleItemPerTicket,
       groupIdenticalItems: groupIdenticalItems ?? this.groupIdenticalItems,
-      eodReportEmail:
-          clearEodReportEmail ? null : (eodReportEmail ?? this.eodReportEmail),
+      eodReportEmail: clearEodReportEmail ? null : (eodReportEmail ?? this.eodReportEmail),
       currencyCode: currencyCode ?? this.currencyCode,
       openCashDrawerOnCashPayment:
           openCashDrawerOnCashPayment ?? this.openCashDrawerOnCashPayment,
@@ -144,7 +142,8 @@ class KioskSettingsRepository {
       'bigger_brew_kiosk.settings.group_identical_items.v1';
   static const _eodReportEmailKey =
       'bigger_brew_kiosk.settings.eod_report_email.v1';
-  static const _currencyCodeKey = 'bigger_brew_kiosk.settings.currency_code.v1';
+  static const _currencyCodeKey =
+      'bigger_brew_kiosk.settings.currency_code.v1';
   static const _openCashDrawerOnCashPaymentKey =
       'bigger_brew_kiosk.settings.open_cash_drawer_on_cash_payment.v1';
 
@@ -153,14 +152,15 @@ class KioskSettingsRepository {
 
     return KioskSettings(
       storeOpen: prefs.getBool(_storeOpenKey) ?? true,
-      storeName: prefs.getString(_storeNameKey) ?? 'MyKiosk',
+      storeName: prefs.getString(_storeNameKey) ?? 'BIGGER BREW',
       emailEnabled: prefs.getBool(_emailEnabledKey) ?? true,
       storeId: prefs.getString(_storeIdKey) ?? '',
       deviceId: prefs.getString(_deviceIdKey) ?? '',
       printerPaperSize: prefs.getString(_paperSizeKey) ?? '58mm',
       printerConnectionType:
           prefs.getString(_printerConnectionTypeKey) ?? 'bluetooth',
-      bluetoothPrinterAddress: prefs.getString(_bluetoothPrinterAddressKey),
+      bluetoothPrinterAddress:
+          prefs.getString(_bluetoothPrinterAddressKey),
       bluetoothPrinterName: prefs.getString(_bluetoothPrinterNameKey),
       printerId: prefs.getString(_printerIdKey),
       printerName: prefs.getString(_printerNameKey),
@@ -191,7 +191,7 @@ class KioskSettingsRepository {
     final name = value.trim();
     await prefs.setString(
       _storeNameKey,
-      name.isEmpty ? 'MyKiosk' : name,
+      name.isEmpty ? 'BIGGER BREW' : name,
     );
   }
 
@@ -251,6 +251,8 @@ class KioskSettingsRepository {
     await prefs.setBool(_groupIdenticalItemsKey, value);
   }
 
+
+
   Future<void> setOpenCashDrawerOnCashPayment(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_openCashDrawerOnCashPaymentKey, value);
@@ -284,6 +286,7 @@ class KioskSettingsRepository {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_paperSizeKey, value);
   }
+
 
   Future<void> setBluetoothPrinter({
     required String address,

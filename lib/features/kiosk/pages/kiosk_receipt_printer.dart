@@ -91,10 +91,8 @@ class KioskReceiptPrinter {
   }) async {
     final info = await Printing.info();
     final settings = await _settingsRepository.load();
-    final effectiveBaristaCopy =
-        includeBaristaCopy ?? settings.printBaristaCopy;
-    final effectiveKitchenCopy =
-        includeKitchenCopy ?? settings.printKitchenCopy;
+    final effectiveBaristaCopy = includeBaristaCopy ?? settings.printBaristaCopy;
+    final effectiveKitchenCopy = includeKitchenCopy ?? settings.printKitchenCopy;
 
     if (settings.printerConnectionType == 'bluetooth' &&
         settings.bluetoothPrinterAddress != null) {
@@ -121,7 +119,7 @@ class KioskReceiptPrinter {
     Future<bool> direct(Printer printer) async {
       return await Printing.directPrintPdf(
         printer: printer,
-        name: 'MyKiosk ${order.orderNumber}',
+        name: 'Bigger Brew ${order.orderNumber}',
         onLayout: (_) => buildPdf(
           order,
           paperSize: settings.printerPaperSize,
@@ -145,7 +143,7 @@ class KioskReceiptPrinter {
     if (!allowPrintDialogFallback) return false;
 
     return await Printing.layoutPdf(
-      name: 'MyKiosk ${order.orderNumber}',
+      name: 'Bigger Brew ${order.orderNumber}',
       onLayout: (_) => buildPdf(
         order,
         paperSize: settings.printerPaperSize,
@@ -162,7 +160,7 @@ class KioskReceiptPrinter {
   }) async {
     return await Printing.directPrintPdf(
       printer: printer,
-      name: 'MyKiosk Printer Test',
+      name: 'Bigger Brew Printer Test',
       onLayout: (_) => buildTestPdf(paperSize: paperSize),
     );
   }
@@ -185,7 +183,7 @@ class KioskReceiptPrinter {
           children: [
             pw.Center(
               child: pw.Text(
-                'MyKiosk',
+                'BIGGER BREW',
                 style: pw.TextStyle(
                   fontSize: 18,
                   fontWeight: pw.FontWeight.bold,
@@ -256,10 +254,8 @@ class KioskReceiptPrinter {
   }) async {
     final doc = pw.Document(theme: await _pdfTheme());
     final width = paperSize == '58mm' ? 58.0 : 80.0;
-    final baristaItems =
-        includeBaristaCopy ? _baristaItems(order) : const <KioskCartItem>[];
-    final kitchenItems =
-        includeKitchenCopy ? _kitchenItems(order) : const <KioskCartItem>[];
+    final baristaItems = includeBaristaCopy ? _baristaItems(order) : const <KioskCartItem>[];
+    final kitchenItems = includeKitchenCopy ? _kitchenItems(order) : const <KioskCartItem>[];
 
     // A fixed 180mm page was too short for the combined customer + barista +
     // kitchen receipt. The PDF printer preview therefore clipped the kitchen
@@ -274,16 +270,15 @@ class KioskReceiptPrinter {
     for (final item in kitchenItems) {
       productionHeight += 18;
       if (item.variant != null) productionHeight += 8;
-      productionHeight +=
-          item.options.where((o) => o.kitchenPrepared).length * 8;
+      productionHeight += item.options.where((o) => o.kitchenPrepared).length * 8;
     }
     // Customer receipts keep their established 210mm base. Production-only
     // copies use content-driven height so there is no artificial blank space
     // above or below a Barista/Kitchen ticket.
-    final copyHeaderHeight = (baristaItems.isNotEmpty ? 20.0 : 0.0) +
+    final copyHeaderHeight =
+        (baristaItems.isNotEmpty ? 20.0 : 0.0) +
         (kitchenItems.isNotEmpty ? 20.0 : 0.0);
-    final hasProductionCopy =
-        baristaItems.isNotEmpty || kitchenItems.isNotEmpty;
+    final hasProductionCopy = baristaItems.isNotEmpty || kitchenItems.isNotEmpty;
     final pageHeightMm = (includeCustomerReceipt ? 210.0 : 0.0) +
         copyHeaderHeight +
         productionHeight +
@@ -305,230 +300,224 @@ class KioskReceiptPrinter {
               horizontal: 5 * PdfPageFormat.mm,
             ),
             child: pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-              children: [
-                if (includeCustomerReceipt) ...[
-                  pw.Center(
-                    child: pw.Text(
-                      'MyKiosk',
-                      style: pw.TextStyle(
-                        fontSize: 18,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              if (includeCustomerReceipt) ...[
+              pw.Center(
+                child: pw.Text(
+                  'BIGGER BREW',
+                  style: pw.TextStyle(
+                    fontSize: 18,
+                    fontWeight: pw.FontWeight.bold,
                   ),
-                  pw.SizedBox(height: 3),
-                  pw.Center(
-                    child: pw.Text(
-                      'MILKTEA • COFFEE',
-                      style: const pw.TextStyle(fontSize: 8),
-                    ),
+                ),
+              ),
+              pw.SizedBox(height: 3),
+              pw.Center(
+                child: pw.Text(
+                  'MILKTEA • COFFEE',
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Divider(),
+              pw.Center(
+                child: pw.Text(
+                  order.orderNumber,
+                  style: pw.TextStyle(
+                    fontSize: 22,
+                    fontWeight: pw.FontWeight.bold,
                   ),
-                  pw.SizedBox(height: 10),
-                  pw.Divider(),
-                  pw.Center(
-                    child: pw.Text(
-                      order.orderNumber,
-                      style: pw.TextStyle(
-                        fontSize: 22,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.SizedBox(height: 4),
-                  pw.Center(
-                    child: pw.Text(
-                      _time(order.createdAt),
-                      style: const pw.TextStyle(fontSize: 9),
-                    ),
-                  ),
-                  pw.SizedBox(height: 8),
-                  pw.Text('ORDER TYPE: ${order.orderType}'),
-                  pw.Text('PAYMENT: ${order.paymentMethod}'),
-                  pw.Text('ORDER MODE: ${order.orderMode}'),
-                  pw.Text('STATUS: ${order.paymentStatus.toUpperCase()}'),
-                  pw.Divider(),
-                  ...order.items.map(
-                    (item) => pw.Padding(
-                      padding: const pw.EdgeInsets.only(bottom: 7),
-                      child: pw.Column(
-                        crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                ),
+              ),
+              pw.SizedBox(height: 4),
+              pw.Center(
+                child: pw.Text(
+                  _time(order.createdAt),
+                  style: const pw.TextStyle(fontSize: 9),
+                ),
+              ),
+              pw.SizedBox(height: 8),
+              pw.Text('ORDER TYPE: ${order.orderType}'),
+              pw.Text('PAYMENT: ${order.paymentMethod}'),
+              pw.Text('ORDER MODE: ${order.orderMode}'),
+              pw.Text('STATUS: ${order.paymentStatus.toUpperCase()}'),
+              pw.Divider(),
+              ...order.items.map(
+                (item) => pw.Padding(
+                  padding: const pw.EdgeInsets.only(bottom: 7),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                    children: [
+                      pw.Row(
                         children: [
-                          pw.Row(
-                            children: [
-                              pw.Expanded(
-                                child: pw.Text(
-                                  '${item.quantity} x ${item.product.name}',
-                                  style: pw.TextStyle(
-                                    fontWeight: pw.FontWeight.bold,
-                                  ),
-                                ),
+                          pw.Expanded(
+                            child: pw.Text(
+                              '${item.quantity} x ${item.product.name}',
+                              style: pw.TextStyle(
+                                fontWeight: pw.FontWeight.bold,
                               ),
-                              pw.Text(KioskCurrency.formatCode(item.total)),
-                            ],
+                            ),
                           ),
-                          if (item.size != null)
-                            pw.Text(
-                              '  ${item.size!.name}'
-                              '${item.size!.displayVolume == null ? '' : ' • ${item.size!.displayVolume}'}',
-                              style: const pw.TextStyle(fontSize: 8),
-                            ),
-                          if (item.variant != null)
-                            pw.Text(
-                              '  ${item.variant!.name}',
-                              style: const pw.TextStyle(fontSize: 8),
-                            ),
-                          if (item.options.isNotEmpty)
-                            pw.Text(
-                              '  ${item.options.map((o) => o.name).join(' • ')}',
-                              style: const pw.TextStyle(fontSize: 8),
-                            ),
+                          pw.Text(KioskCurrency.formatCode(item.total)),
                         ],
                       ),
+                      if (item.size != null)
+                        pw.Text(
+                          '  ${item.size!.name}'
+                          '${item.size!.displayVolume == null ? '' : ' • ${item.size!.displayVolume}'}',
+                          style: const pw.TextStyle(fontSize: 8),
+                        ),
+                      if (item.variant != null)
+                        pw.Text(
+                          '  ${item.variant!.name}',
+                          style: const pw.TextStyle(fontSize: 8),
+                        ),
+                      if (item.options.isNotEmpty)
+                        pw.Text(
+                          '  ${item.options.map((o) => o.name).join(' • ')}',
+                          style: const pw.TextStyle(fontSize: 8),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              pw.Divider(),
+              pw.Row(
+                children: [
+                  pw.Expanded(
+                    child: pw.Text(
+                      'TOTAL',
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
                     ),
                   ),
-                  pw.Divider(),
-                  pw.Row(
-                    children: [
-                      pw.Expanded(
-                        child: pw.Text(
-                          'TOTAL',
+                  pw.Text(
+                    KioskCurrency.formatCode(order.total),
+                    style: pw.TextStyle(
+                      fontSize: 14,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              ],
+              if (baristaItems.isNotEmpty) ...[
+                pw.Divider(thickness: 1.5),
+                pw.Center(
+                  child: pw.Text(
+                    'BARISTA COPY',
+                    style: pw.TextStyle(
+                      fontSize: 13,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.Center(
+                  child: pw.Text(
+                    'ORDER ${order.orderNumber}',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ...baristaItems.asMap().entries.map(
+                  (entry) => pw.Padding(
+                    padding: pw.EdgeInsets.only(
+                      bottom: entry.key == baristaItems.length - 1 ? 0 : 7,
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Text(
+                          '${entry.value.quantity} x ${entry.value.product.name}',
+                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        ),
+                        if (entry.value.size != null)
+                          pw.Text(
+                            '  ${entry.value.size!.name}'
+                            '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
+                            style: const pw.TextStyle(fontSize: 8),
+                          ),
+                        if (entry.value.variant != null)
+                          pw.Text(
+                            '  ${entry.value.variant!.name}',
+                            style: const pw.TextStyle(fontSize: 8),
+                          ),
+                        ...entry.value.options.map(
+                          (option) => pw.Text(
+                            '  + ${option.name}',
+                            style: const pw.TextStyle(fontSize: 8),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              if (kitchenItems.isNotEmpty) ...[
+                pw.Divider(thickness: 1.5),
+                pw.Center(
+                  child: pw.Text(
+                    'KITCHEN COPY',
+                    style: pw.TextStyle(
+                      fontSize: 13,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                pw.Center(
+                  child: pw.Text(
+                    'ORDER ${order.orderNumber}',
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+                ...kitchenItems.asMap().entries.map(
+                  (entry) => pw.Padding(
+                    padding: pw.EdgeInsets.only(
+                      bottom: entry.key == kitchenItems.length - 1 ? 0 : 7,
+                    ),
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+                      children: [
+                        pw.Text(
+                          _kitchenItemLine(entry.value),
                           style: pw.TextStyle(
-                            fontSize: 14,
                             fontWeight: pw.FontWeight.bold,
                           ),
                         ),
-                      ),
-                      pw.Text(
-                        KioskCurrency.formatCode(order.total),
-                        style: pw.TextStyle(
-                          fontSize: 14,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-                if (baristaItems.isNotEmpty) ...[
-                  pw.Divider(thickness: 1.5),
-                  pw.Center(
-                    child: pw.Text(
-                      'BARISTA COPY',
-                      style: pw.TextStyle(
-                        fontSize: 13,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  pw.Center(
-                    child: pw.Text(
-                      'ORDER ${order.orderNumber}',
-                      style: pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  ...baristaItems.asMap().entries.map(
-                        (entry) => pw.Padding(
-                          padding: pw.EdgeInsets.only(
-                            bottom:
-                                entry.key == baristaItems.length - 1 ? 0 : 7,
+                        if (entry.value.size != null)
+                          pw.Text(
+                            '  ${entry.value.size!.name}'
+                            '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
+                            style: const pw.TextStyle(fontSize: 8),
                           ),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                            children: [
-                              pw.Text(
-                                '${entry.value.quantity} x ${entry.value.product.name}',
-                                style: pw.TextStyle(
-                                    fontWeight: pw.FontWeight.bold),
+                        if (entry.value.variant != null)
+                          pw.Text(
+                            '  ${entry.value.variant!.name}',
+                            style: const pw.TextStyle(fontSize: 8),
+                          ),
+                        ...entry.value.options.where((o) => o.kitchenPrepared).map(
+                              (option) => pw.Text(
+                                '  + ${option.name}',
+                                style: const pw.TextStyle(fontSize: 8),
                               ),
-                              if (entry.value.size != null)
-                                pw.Text(
-                                  '  ${entry.value.size!.name}'
-                                  '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
-                                  style: const pw.TextStyle(fontSize: 8),
-                                ),
-                              if (entry.value.variant != null)
-                                pw.Text(
-                                  '  ${entry.value.variant!.name}',
-                                  style: const pw.TextStyle(fontSize: 8),
-                                ),
-                              ...entry.value.options.map(
-                                (option) => pw.Text(
-                                  '  + ${option.name}',
-                                  style: const pw.TextStyle(fontSize: 8),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                ],
-                if (kitchenItems.isNotEmpty) ...[
-                  pw.Divider(thickness: 1.5),
-                  pw.Center(
-                    child: pw.Text(
-                      'KITCHEN COPY',
-                      style: pw.TextStyle(
-                        fontSize: 13,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
+                            ),
+                      ],
                     ),
                   ),
-                  pw.Center(
-                    child: pw.Text(
-                      'ORDER ${order.orderNumber}',
-                      style: pw.TextStyle(
-                        fontSize: 10,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  ...kitchenItems.asMap().entries.map(
-                        (entry) => pw.Padding(
-                          padding: pw.EdgeInsets.only(
-                            bottom:
-                                entry.key == kitchenItems.length - 1 ? 0 : 7,
-                          ),
-                          child: pw.Column(
-                            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
-                            children: [
-                              pw.Text(
-                                _kitchenItemLine(entry.value),
-                                style: pw.TextStyle(
-                                  fontWeight: pw.FontWeight.bold,
-                                ),
-                              ),
-                              if (entry.value.size != null)
-                                pw.Text(
-                                  '  ${entry.value.size!.name}'
-                                  '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
-                                  style: const pw.TextStyle(fontSize: 8),
-                                ),
-                              if (entry.value.variant != null)
-                                pw.Text(
-                                  '  ${entry.value.variant!.name}',
-                                  style: const pw.TextStyle(fontSize: 8),
-                                ),
-                              ...entry.value.options
-                                  .where((o) => o.kitchenPrepared)
-                                  .map(
-                                    (option) => pw.Text(
-                                      '  + ${option.name}',
-                                      style: const pw.TextStyle(fontSize: 8),
-                                    ),
-                                  ),
-                            ],
-                          ),
-                        ),
-                      ),
-                  pw.Divider(),
-                ],
-                if (hasProductionCopy)
-                  pw.SizedBox(
-                      height: _productionBottomFeedMm * PdfPageFormat.mm),
+                ),
+                pw.Divider(),
               ],
+              if (hasProductionCopy)
+                pw.SizedBox(height: _productionBottomFeedMm * PdfPageFormat.mm),
+            ],
             ),
           );
         },

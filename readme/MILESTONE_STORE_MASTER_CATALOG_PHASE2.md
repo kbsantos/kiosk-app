@@ -1,4 +1,4 @@
-# MyKiosk — Store Master Catalog Phase 2
+# Bigger Brew — Store Master Catalog Phase 2
 
 ## Objective
 

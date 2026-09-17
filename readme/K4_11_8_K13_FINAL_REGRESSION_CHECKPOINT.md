@@ -1,4 +1,4 @@
-# MyKiosk Kiosk K4.11.8 — K13 Final Regression / Release Validation
+# Bigger Brew Kiosk K4.11.8 — K13 Final Regression / Release Validation
 
 ## Status
 
@@ -79,7 +79,7 @@ flutter build apk --release
 - [ ] Customer activity resets the timeout.
 - [ ] Staff screens pause the customer timeout.
 - [ ] Staff Mode is not visible in the normal customer UI.
-- [ ] Five taps on MyKiosk within four seconds opens staff PIN access.
+- [ ] Five taps on BIGGER BREW within four seconds opens staff PIN access.
 - [ ] Correct PIN opens Staff Tools.
 - [ ] Staff Tools provides Queue, History/EOD, and Settings.
 - [ ] Exit Staff Mode locks staff access.

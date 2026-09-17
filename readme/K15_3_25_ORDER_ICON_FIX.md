@@ -8,7 +8,7 @@
 - The AppBar shopping-cart/order icon opens `KioskCartPage`.
 - Added `YOUR ORDER` tooltip to the order icon.
 - Preserved the cart item-count badge.
-- Preserved the 5-tap `MyKiosk` staff access flow.
+- Preserved the 5-tap `BIGGER BREW` staff access flow.
 - Removed the now-unused home-page `KioskOrderPanel` import and checkout helper.
 
 ## Test

@@ -74,7 +74,7 @@ class KioskReceiptPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 const Text(
-                  'MyKiosk',
+                  'BIGGER BREW',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 24,
@@ -208,7 +208,9 @@ class KioskReceiptPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 Text(
-                  order.paymentStatus == 'paid' ? 'PAID' : 'PAY AT COUNTER',
+                  order.paymentStatus == 'paid'
+                      ? 'PAID'
+                      : 'PAY AT COUNTER',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 12,
@@ -218,7 +220,7 @@ class KioskReceiptPage extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Thank you for ordering with MyKiosk!',
+                  'Thank you for ordering with Bigger Brew!',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: Colors.black54,

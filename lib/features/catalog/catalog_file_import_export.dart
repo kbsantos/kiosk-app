@@ -57,7 +57,7 @@ class _CatalogFileImportExportPageState
           .first;
       final fileName = 'bigger_brew_catalog_$timestamp.json';
       final path = await FilePicker.saveFile(
-        dialogTitle: 'Export MyKiosk Catalog',
+        dialogTitle: 'Export Bigger Brew Catalog',
         fileName: fileName,
         type: FileType.custom,
         allowedExtensions: ['json'],
@@ -467,7 +467,7 @@ class _CatalogFileImportExportPageState
                     _export),
                 _action(
                     'Import Catalog JSON',
-                    'Select a MyKiosk catalog .json file and replace local overrides after validation.',
+                    'Select a Bigger Brew catalog .json file and replace local overrides after validation.',
                     Icons.file_download_outlined,
                     _import),
                 const SizedBox(height: 14),

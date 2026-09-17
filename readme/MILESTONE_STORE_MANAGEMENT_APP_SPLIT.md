@@ -1,8 +1,8 @@
-# MyKiosk Store Management — Kiosk Boundary Transition
+# Bigger Brew Store Management — Kiosk Boundary Transition
 
 ## Status
 
-The customer-facing kiosk is transitioning to a focused operational role. Product Catalog administration and sales Reporting are moving to the separate **MyKiosk Store Management** Flutter application.
+The customer-facing kiosk is transitioning to a focused operational role. Product Catalog administration and sales Reporting are moving to the separate **Bigger Brew Store Management** Flutter application.
 
 ## Kiosk keeps
 

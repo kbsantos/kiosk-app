@@ -1,9 +1,8 @@
-# MyKiosk Kiosk — K15.3.10 Updated Files
+# Bigger Brew Kiosk — K15.3.10 Updated Files
 
 This package contains the source files updated/added for K15.3.10 Catalog Navigation Integration & Staff Entry Point.
 
 ## Files
-
 - `lib/features/kiosk/pages/kiosk_home_page.dart`
 - `lib/features/kiosk/staff_access.dart`
 - `lib/features/catalog/catalog_manager_dashboard.dart` (K15.3.9 dependency)
@@ -11,8 +10,7 @@ This package contains the source files updated/added for K15.3.10 Catalog Naviga
 - `Bigger_Brew_Kiosk_Sprint_Roadmap.md`
 
 ## Integration
-
-Place these files into the existing MyKiosk kiosk project using the same relative paths.
+Place these files into the existing Bigger Brew kiosk project using the same relative paths.
 
 Production PIN is supplied with:
 

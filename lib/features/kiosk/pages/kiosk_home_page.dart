@@ -27,7 +27,7 @@ class _KioskHomePageState extends State<KioskHomePage> {
   late Future<KioskSettings> _settingsFuture;
 
   // Hidden staff access:
-  // tap MyKiosk five times within four seconds.
+  // tap BIGGER BREW five times within four seconds.
   int _logoTapCount = 0;
   DateTime? _firstLogoTapAt;
 
@@ -243,18 +243,30 @@ class _KioskHomePageState extends State<KioskHomePage> {
         title: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTap: () => _handleLogoTap(context),
-          child: const Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 10,
-            ),
-            child: Text(
-              'MyKiosk',
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                letterSpacing: 1.5,
-              ),
-            ),
+          child: FutureBuilder<KioskSettings>(
+            future: _settingsFuture,
+            builder: (context, snapshot) {
+              final storeName = snapshot.data?.storeName.trim();
+              final title = storeName == null || storeName.isEmpty
+                  ? 'BIGGER BREW'
+                  : storeName;
+
+              return Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+              );
+            },
           ),
         ),
         actions: [

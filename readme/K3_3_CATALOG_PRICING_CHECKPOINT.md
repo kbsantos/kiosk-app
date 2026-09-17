@@ -1,4 +1,4 @@
-# MyKiosk K3.3 — Catalog Pricing Checkpoint
+# Bigger Brew K3.3 — Catalog Pricing Checkpoint
 
 ## Result
 
@@ -44,11 +44,11 @@ Current commercial catalog:
 
 The catalog continues to use:
 
-| Customer label |  Volume |
-| -------------- | ------: |
-| Regular        |    12oz |
-| Go Big         |    22oz |
-| Go Bigger      | 1 Liter |
+| Customer label | Volume |
+|---|---:|
+| Regular | 12oz |
+| Go Big | 22oz |
+| Go Bigger | 1 Liter |
 
 ## Add-on architecture
 
@@ -102,6 +102,7 @@ Then verify the kiosk customer flow for:
 3. Food product pricing.
 4. 12oz / 22oz / 1 Liter price display.
 5. Intentionally unpriced Slushies remain unavailable until prices are supplied.
+
 
 ## Post-user verification fixes — 2026-08-17
 

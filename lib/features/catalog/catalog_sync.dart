@@ -43,7 +43,7 @@ class CatalogSyncPackage {
 
   static CatalogSyncPackage fromJson(Map<String, dynamic> json) {
     if (json['format'] != 'bigger_brew_catalog_sync') {
-      throw const FormatException('Not a MyKiosk catalog sync package.');
+      throw const FormatException('Not a Bigger Brew catalog sync package.');
     }
     if (json['formatVersion'] != formatVersion) {
       throw FormatException(
@@ -137,7 +137,7 @@ class CatalogSyncService {
     final stamp =
         DateTime.now().toIso8601String().replaceAll(':', '-').split('.').first;
     final path = await FilePicker.saveFile(
-      dialogTitle: 'Export MyKiosk Catalog Sync Package',
+      dialogTitle: 'Export Bigger Brew Catalog Sync Package',
       fileName: 'bigger_brew_catalog_sync_$stamp.json',
       type: FileType.custom,
       allowedExtensions: ['json'],

@@ -38,8 +38,7 @@ class _CatalogManagerDashboardPageState
     setState(() => _loading = true);
     try {
       final catalog = await _masterService.loadMasterCatalog();
-      await _repository.saveCatalog(catalog,
-          auditAction: 'Refresh catalog from store master');
+      await _repository.saveCatalog(catalog, auditAction: 'Refresh catalog from store master');
       final report = CatalogValidator().validate(catalog);
       if (!mounted) return;
       setState(() {
@@ -200,7 +199,7 @@ class _CatalogManagerDashboardPageState
                 child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                  const Text('MyKiosk',
+                  const Text('BIGGER BREW',
                       style: TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,

@@ -17,7 +17,8 @@ class KioskCustomerQueuePage extends StatefulWidget {
   });
 
   @override
-  State<KioskCustomerQueuePage> createState() => _KioskCustomerQueuePageState();
+  State<KioskCustomerQueuePage> createState() =>
+      _KioskCustomerQueuePageState();
 }
 
 class _KioskCustomerQueuePageState extends State<KioskCustomerQueuePage> {
@@ -85,7 +86,7 @@ class _KioskCustomerQueuePageState extends State<KioskCustomerQueuePage> {
       case KioskOrderStatus.ready:
         return 'Please proceed to the counter and claim your order.';
       case KioskOrderStatus.completed:
-        return 'Thank you for ordering with MyKiosk!';
+        return 'Thank you for ordering with Bigger Brew!';
       case KioskOrderStatus.cancelled:
         return 'Please see the counter for assistance.';
     }
@@ -128,7 +129,7 @@ class _KioskCustomerQueuePageState extends State<KioskCustomerQueuePage> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text(
-                              'MyKiosk',
+                              'BIGGER BREW',
                               style: TextStyle(
                                 color: dark,
                                 fontSize: 30,

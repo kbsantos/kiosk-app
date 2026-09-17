@@ -1,5 +1,5 @@
 name: bigger_brew_kiosk
-description: MyKiosk standalone customer ordering kiosk.
+description: Bigger Brew standalone customer ordering kiosk.
 publish_to: "none"
 version: 1.0.0+1
 

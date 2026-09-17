@@ -27,6 +27,6 @@ After an item is successfully added, including:
 - variants,
 - products without options,
 
-the category page automatically returns to the MyKiosk main menu.
+the category page automatically returns to the BIGGER BREW main menu.
 
 The item remains in the shared cart, so the cart badge/order remains intact.

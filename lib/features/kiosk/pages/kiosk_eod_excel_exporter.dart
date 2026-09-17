@@ -47,7 +47,7 @@ class KioskEodExcelExporter {
         pendingPayment.fold<int>(0, (sum, order) => sum + order.total);
     final refunds = refunded.fold<int>(0, (sum, order) => sum + order.total);
 
-    summary.appendRow([TextCellValue('MyKiosk END-OF-DAY SUMMARY')]);
+    summary.appendRow([TextCellValue('BIGGER BREW END-OF-DAY SUMMARY')]);
     summary.appendRow([
       TextCellValue('Date'),
       DateCellValue(
@@ -59,18 +59,11 @@ class KioskEodExcelExporter {
     summary.appendRow(
         [TextCellValue('Completed Orders'), IntCellValue(completed.length)]);
     summary.appendRow([TextCellValue('Items Sold'), IntCellValue(itemCount)]);
-    summary.appendRow([
-      TextCellValue('Completed Sales (${KioskCurrency.code})'),
-      IntCellValue(sales)
-    ]);
-    summary.appendRow([
-      TextCellValue('Payment Still Pending (${KioskCurrency.code})'),
-      IntCellValue(pending)
-    ]);
-    summary.appendRow([
-      TextCellValue('Refunds (${KioskCurrency.code})'),
-      IntCellValue(refunds)
-    ]);
+    summary.appendRow(
+        [TextCellValue('Completed Sales (${KioskCurrency.code})'), IntCellValue(sales)]);
+    summary.appendRow(
+        [TextCellValue('Payment Still Pending (${KioskCurrency.code})'), IntCellValue(pending)]);
+    summary.appendRow([TextCellValue('Refunds (${KioskCurrency.code})'), IntCellValue(refunds)]);
     summary.appendRow([]);
     summary.appendRow([TextCellValue('PAYMENT BREAKDOWN')]);
     summary.appendRow([
@@ -177,7 +170,7 @@ class KioskEodExcelExporter {
       completedOrders: completed,
     );
 
-    _styleHeader(summary, 0, 0, 'MyKiosk END-OF-DAY SUMMARY');
+    _styleHeader(summary, 0, 0, 'BIGGER BREW END-OF-DAY SUMMARY');
     _styleHeader(summary, 0, 8, 'PAYMENT BREAKDOWN');
     _styleRow(summary, 0, 9);
     _styleRow(ordersSheet, 0, 0);

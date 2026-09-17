@@ -6,7 +6,7 @@ void main() {
     const settings = KioskSettings();
 
     expect(settings.storeOpen, isTrue);
-    expect(settings.storeName, 'MyKiosk');
+    expect(settings.storeName, 'BIGGER BREW');
     expect(settings.emailEnabled, isTrue);
     expect(settings.storeId, '');
     expect(settings.deviceId, '');
@@ -38,7 +38,7 @@ void main() {
 
     final closed = identified.copyWith(storeOpen: false);
     expect(closed.storeOpen, isFalse);
-    expect(closed.storeName, 'MyKiosk');
+    expect(closed.storeName, 'BIGGER BREW');
     expect(closed.printerPaperSize, '58mm');
 
     final narrow = closed.copyWith(printerPaperSize: '58mm');
@@ -62,3 +62,4 @@ void main() {
     expect(drawer.currencyCode, 'PHP');
   });
 }
+

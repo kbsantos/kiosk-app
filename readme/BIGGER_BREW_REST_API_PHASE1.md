@@ -1,4 +1,4 @@
-# MyKiosk REST API — Phase 1
+# Bigger Brew REST API — Phase 1
 
 ## Purpose
 
@@ -14,7 +14,7 @@ The API is store-scoped. Reporting clients should authenticate with a Supabase u
 
 ```json
 {
-	"store_id": "<stores.id UUID>"
+  "store_id": "<stores.id UUID>"
 }
 ```
 

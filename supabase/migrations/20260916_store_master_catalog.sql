@@ -1,4 +1,4 @@
--- MyKiosk Store Master Catalog
+-- Bigger Brew Store Master Catalog
 -- Supabase is the store-level source of truth. Kiosks keep a local operational copy.
 
 create table if not exists public.catalog_categories (

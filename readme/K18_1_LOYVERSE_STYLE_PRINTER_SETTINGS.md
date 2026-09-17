@@ -2,7 +2,7 @@
 
 ## Goal
 
-Align the MyKiosk kiosk printer settings with the provided Loyverse reference while keeping the implementation focused on the XP-58H Bluetooth thermal printer.
+Align the Bigger Brew kiosk printer settings with the provided Loyverse reference while keeping the implementation focused on the XP-58H Bluetooth thermal printer.
 
 ## Implemented
 

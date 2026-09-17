@@ -1,4 +1,4 @@
-# MyKiosk Kiosk Supabase
+# Bigger Brew Kiosk Supabase
 
 ## Reporting kiosk identity
 
@@ -6,7 +6,6 @@ Apply `migrations/20260916_resolve_kiosk_device.sql` before using the
 reporting sync from the kiosk.
 
 The kiosk stores:
-
 - Store ID = `stores.id` UUID
 - Device / Kiosk Code = `devices.device_code` text
 
