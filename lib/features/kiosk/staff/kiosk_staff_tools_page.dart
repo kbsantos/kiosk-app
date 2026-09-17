@@ -4,10 +4,8 @@ import '../kiosk_idle_timeout.dart';
 import '../pages/kiosk_order_history_page.dart';
 import '../pages/kiosk_order_queue_page.dart';
 import '../settings/kiosk_settings_page.dart';
-import 'kiosk_catalog_manager_page.dart';
 import 'kiosk_staff_gate.dart';
-import '../orders/kiosk_order_repository.dart';
-import '../../reporting_sync/reporting_sync_page.dart';
+import '../administration/kiosk_administration_sync_page.dart';
 
 class KioskStaffToolsPage extends StatelessWidget {
   const KioskStaffToolsPage({super.key});
@@ -22,65 +20,6 @@ class KioskStaffToolsPage extends StatelessWidget {
     KioskStaffGate.endSession();
     kioskIdleTimeoutController.start();
     Navigator.of(context).pop();
-  }
-
-  Future<void> _syncHistoricalDrinkTemperatures(BuildContext context) async {
-    final repository = KioskOrderRepository();
-
-    // Preview the operation before changing any transaction data.
-    final resultPreview = await repository.syncHistoricalDrinkTemperatures(dryRun: true);
-
-    if (!context.mounted) return;
-
-    final action = resultPreview.updatedItems == 0
-        ? 'No historical drink temperatures need to be synchronized.'
-        : '${resultPreview.updatedItems} drink item(s) across '
-            '${resultPreview.updatedOrders} order(s) will be synchronized.';
-
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('SYNC HISTORICAL DRINK TEMPERATURE'),
-        content: Text(
-          '$action\n\n'
-          'Historical drink temperatures will be synchronized to the current '
-          'product catalog. This includes transactions that were previously '
-          'saved with the default Iced value. Non-drink items and all other '
-          'transaction details are left unchanged.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('CLOSE'),
-          ),
-          if (resultPreview.updatedItems > 0)
-            FilledButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
-              child: const Text('SYNC'),
-            ),
-        ],
-      ),
-    );
-
-    if (confirmed == true && context.mounted) {
-      try {
-        final result = await repository.syncHistoricalDrinkTemperatures();
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Historical sync complete: ${result.updatedItems} '
-              'drink item(s) updated.',
-            ),
-          ),
-        );
-      } catch (error) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Unable to sync historical drinks: $error')),
-        );
-      }
-    }
   }
 
   @override
@@ -232,22 +171,13 @@ class KioskStaffToolsPage extends StatelessWidget {
           onTap: () => _openPage(context, const KioskOrderHistoryPage()),
         ),
         _StaffActionData(
-          icon: Icons.sync_outlined,
-          title: 'SYNC HISTORICAL DRINKS',
-          subtitle: 'Synchronize historical drink temperatures with the current catalog.',
-          onTap: () => _syncHistoricalDrinkTemperatures(context),
-        ),
-        _StaffActionData(
-          icon: Icons.cloud_sync_outlined,
-          title: 'REPORTING SYNC',
-          subtitle: 'Manually sync pending kiosk transactions to the reporting database.',
-          onTap: () => _openPage(context, const ReportingSyncPage()),
-        ),
-        _StaffActionData(
-          icon: Icons.inventory_2_outlined,
-          title: 'PRODUCT CATALOG',
-          subtitle: 'Browse, search and manage the menu catalog.',
-          onTap: () => _openPage(context, const KioskCatalogManagerPage()),
+          icon: Icons.admin_panel_settings_outlined,
+          title: 'ADMINISTRATION SYNC',
+          subtitle: 'Manage historical synchronization and reporting transaction sync.',
+          onTap: () => _openPage(
+            context,
+            const KioskAdministrationSyncPage(),
+          ),
         ),
         _StaffActionData(
           icon: Icons.settings_outlined,

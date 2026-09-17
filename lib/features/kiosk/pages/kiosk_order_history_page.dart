@@ -8,6 +8,7 @@ import 'kiosk_eod_pdf_report_page.dart';
 import 'kiosk_monthly_pdf_report_page.dart';
 import 'kiosk_eod_email_service.dart';
 import '../settings/kiosk_settings_repository.dart';
+import '../../reporting_sync/reporting_sync_service.dart';
 
 class KioskOrderHistoryPage extends StatefulWidget {
   const KioskOrderHistoryPage({super.key});
@@ -19,10 +20,13 @@ class KioskOrderHistoryPage extends StatefulWidget {
 class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
   final KioskOrderRepository _repository = KioskOrderRepository();
   final KioskSettingsRepository _settingsRepository = KioskSettingsRepository();
+  final ReportingSyncService _reportingSyncService = ReportingSyncService();
   DateTime _selectedDate = DateTime.now();
   KioskOrderStatus? _filter = KioskOrderStatus.completed;
   late Future<List<KioskOrder>> _orders;
   bool _employeeOrderMode = false;
+  bool _emailEnabled = true;
+  bool _emailConfigured = false;
   final Set<String> _cancellingOrderIds = <String>{};
 
   @override
@@ -35,7 +39,11 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
   Future<void> _loadSettings() async {
     final settings = await _settingsRepository.load();
     if (!mounted) return;
-    setState(() => _employeeOrderMode = settings.employeeOrderMode);
+    setState(() {
+      _employeeOrderMode = settings.employeeOrderMode;
+      _emailEnabled = settings.emailEnabled;
+      _emailConfigured = settings.eodReportEmail?.trim().isNotEmpty ?? false;
+    });
   }
 
   void _reload() {
@@ -128,7 +136,73 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
     });
   }
 
+  Future<bool> _syncAllTransactionsBeforeEod() async {
+    try {
+      final result = await _reportingSyncService.syncAllTransactions();
+
+      if (!mounted) return false;
+
+      if (!result.isSuccess) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('EOD REPORTING SYNC INCOMPLETE'),
+            content: SingleChildScrollView(
+              child: SelectableText(
+                '${result.summary}\n\n'
+                'EOD reports are blocked until every transaction syncs successfully.'
+                '${result.failures.isEmpty ? '' : '\n\n${result.failures.map((failure) => '${failure.orderNumber} (${failure.externalTransactionId}):\\n${failure.message}').join('\\n\\n')}'}',
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('CLOSE'),
+              ),
+            ],
+          ),
+        );
+        return false;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result.attempted == 0
+                ? 'No local transactions found. EOD is ready.'
+                : '${result.succeeded} transaction(s) synced. EOD is ready.',
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return true;
+    } catch (error) {
+      if (!mounted) return false;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('EOD REPORTING SYNC FAILED'),
+          content: SingleChildScrollView(
+            child: SelectableText(
+              'All transactions must sync successfully before EOD reports can be generated.\n\n$error',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
+      return false;
+    }
+  }
+
   Future<void> _openPdfReport(List<KioskOrder> orders) async {
+    final synced = await _syncAllTransactionsBeforeEod();
+    if (!synced || !mounted) return;
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => KioskEodPdfReportPage(
@@ -156,6 +230,19 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
 
   Future<void> _emailEodReport(List<KioskOrder> orders) async {
     final settings = await _settingsRepository.load();
+    if (!settings.emailEnabled) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('EOD email is disabled in Kiosk Settings.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    final synced = await _syncAllTransactionsBeforeEod();
+    if (!synced || !mounted) return;
     if (!mounted) return;
 
     final recipient = settings.eodReportEmail;
@@ -574,6 +661,8 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
                 refunds: refunds,
                 onExport: () => _openPdfReport(allOrders),
                 onEmail: () => _emailEodReport(allOrders),
+                emailEnabled: _emailEnabled,
+                 emailConfigured: _emailConfigured,
               ),
               _HistoryFilters(
                 filter: _filter,
@@ -669,6 +758,8 @@ class _SummaryHeader extends StatelessWidget {
   final int refunds;
   final VoidCallback onExport;
   final VoidCallback onEmail;
+  final bool emailEnabled;
+  final bool emailConfigured;
 
   const _SummaryHeader({
     required this.date,
@@ -679,6 +770,8 @@ class _SummaryHeader extends StatelessWidget {
     required this.refunds,
     required this.onExport,
     required this.onEmail,
+    required this.emailEnabled,
+    required this.emailConfigured,
   });
 
   @override
@@ -724,11 +817,12 @@ class _SummaryHeader extends StatelessWidget {
                       foregroundColor: Colors.white,
                     ),
                   ),
-                  OutlinedButton.icon(
-                    onPressed: onEmail,
-                    icon: const Icon(Icons.email_outlined),
-                    label: const Text('EMAIL PDF'),
-                  ),
+                  if (emailConfigured)
+                    OutlinedButton.icon(
+                      onPressed: emailEnabled ? onEmail : null,
+                      icon: const Icon(Icons.email_outlined),
+                      label: const Text('EMAIL PDF'),
+                    ),
                 ],
               ),
             ],

@@ -55,4 +55,54 @@ void main() {
     expect(restored.total, 59);
     expect(restored.orderMode, 'Customer');
   });
+
+  test('reporting restore snapshot reconstructs transaction items and options', () {
+    final restored = KioskOrder.fromJson({
+      'id': 'RESTORE-001',
+      'orderNumber': 'BB-009',
+      'createdAt': '2026-09-16T10:00:00.000Z',
+      'orderType': 'Take Out',
+      'paymentMethod': 'Pay at Counter',
+      'paymentStatus': 'paid',
+      'orderMode': 'Customer',
+      'status': 'completed',
+      'total': 79,
+      'items': [
+        {
+          'productId': 'iced_americano',
+          'productName': 'Iced Americano',
+          'productType': 'drink',
+          'drinkTemperature': 'iced',
+          'category': 'coffee',
+          'kitchenPrepared': false,
+          'size': {
+            'id': 'regular',
+            'name': 'Regular',
+            'volumeMl': 355,
+            'displayVolume': '12oz',
+            'price': 59,
+          },
+          'variant': null,
+          'quantity': 1,
+          'unitPrice': 79,
+          'total': 79,
+          'options': [
+            {
+              'id': 'espresso',
+              'name': 'Espresso Shot',
+              'price': 20,
+              'kitchenPrepared': false,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(restored.id, 'RESTORE-001');
+    expect(restored.status, KioskOrderStatus.completed);
+    expect(restored.items.single.size?.id, 'regular');
+    expect(restored.items.single.options.single.price, 20);
+    expect(restored.items.single.total, 79);
+  });
+
 }

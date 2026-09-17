@@ -18,6 +18,8 @@ class KioskSettingsPage extends StatefulWidget {
 class _KioskSettingsPageState extends State<KioskSettingsPage> {
   final KioskSettingsRepository _repository = KioskSettingsRepository();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _storeIdController = TextEditingController();
+  final TextEditingController _deviceIdController = TextEditingController();
   final TextEditingController _newPinController = TextEditingController();
   final TextEditingController _confirmPinController = TextEditingController();
   final TextEditingController _eodEmailController = TextEditingController();
@@ -25,6 +27,8 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
   KioskSettings _settings = const KioskSettings();
   bool _loading = true;
   bool _savingName = false;
+  bool _emailEnabled = true;
+  bool _savingReportingIdentity = false;
   bool _loadingPrinters = false;
   bool _testingPrinter = false;
   bool _loadingBluetooth = false;
@@ -45,6 +49,8 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
   @override
   void dispose() {
     _nameController.dispose();
+    _storeIdController.dispose();
+    _deviceIdController.dispose();
     _newPinController.dispose();
     _confirmPinController.dispose();
     _eodEmailController.dispose();
@@ -58,6 +64,9 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
     setState(() {
       _settings = settings;
       _nameController.text = settings.storeName;
+      _storeIdController.text = settings.storeId;
+      _emailEnabled = settings.emailEnabled;
+      _deviceIdController.text = settings.deviceId;
       _eodEmailController.text = settings.eodReportEmail ?? '';
       KioskCurrency.setCode(settings.currencyCode);
       _loading = false;
@@ -98,6 +107,62 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Store name saved.'),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
+  Future<void> _saveReportingIdentity() async {
+    final storeId = _storeIdController.text.trim();
+    final deviceId = _deviceIdController.text.trim();
+
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-'
+      r'[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+    );
+
+    if (!uuidPattern.hasMatch(storeId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a valid Store ID (UUID).'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    if (deviceId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a Device / Kiosk Code.'),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _savingReportingIdentity = true);
+
+    await _repository.setReportingIdentity(
+      storeId: storeId,
+      deviceId: deviceId,
+    );
+    await _repository.setEmailEnabled(_emailEnabled);
+
+    if (!mounted) return;
+
+    setState(() {
+      _savingReportingIdentity = false;
+      _settings = _settings.copyWith(
+        storeId: storeId,
+        deviceId: deviceId,
+        emailEnabled: _emailEnabled,
+      );
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Store ID and Device / Kiosk Code saved.'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -739,36 +804,90 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
                 _Section(
                   title: 'STORE IDENTITY',
                   icon: Icons.badge_outlined,
-                  child: Row(
+                  child: Column(
                     children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _nameController,
-                          textCapitalization: TextCapitalization.characters,
-                          decoration: const InputDecoration(
-                            labelText: 'Store name',
-                            hintText: 'BIGGER BREW',
-                            border: OutlineInputBorder(),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _nameController,
+                              textCapitalization: TextCapitalization.characters,
+                              decoration: const InputDecoration(
+                                labelText: 'Store name',
+                                hintText: 'BIGGER BREW',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
                           ),
-                        ),
+
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      FilledButton(
-                        onPressed: _savingName ? null : _saveStoreName,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: gold,
-                          foregroundColor: Colors.white,
+                      const SizedBox(height: 14),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _storeIdController,
+                              decoration: const InputDecoration(
+                                labelText: 'Store ID',
+                                hintText: 'Supabase store UUID',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _deviceIdController,
+                              textCapitalization: TextCapitalization.characters,
+                              decoration: const InputDecoration(
+                                labelText: 'Device / Kiosk Code',
+                                hintText: 'KIOSK-00',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Enable EOD email'),
+                        subtitle: const Text(
+                          'Allow the EOD page to send the PDF report by email. If no EOD email address is configured, email actions remain hidden.',
                         ),
-                        child: _savingName
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text('SAVE'),
+                        value: _emailEnabled,
+                        onChanged: (value) {
+                          setState(() => _emailEnabled = value);
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: FilledButton(
+                          onPressed: _savingName || _savingReportingIdentity
+                              ? null
+                              : () async {
+                                  await _saveStoreName();
+                                  if (!mounted) return;
+                                  await _saveReportingIdentity();
+                                },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: gold,
+                            foregroundColor: Colors.white,
+                          ),
+                          child: _savingName || _savingReportingIdentity
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('SAVE'),
+                        ),
                       ),
                     ],
                   ),

@@ -1,4 +1,5 @@
 import '../../../product_catalog/kiosk_catalog_adapter.dart';
+import '../../catalog/store_catalog_sync_service.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
 import '../models/kiosk_models.dart';
 
@@ -13,8 +14,13 @@ class KioskCatalogData {
 
   static const _repository = ProductCatalogRepository();
   static const _adapter = KioskCatalogAdapter();
+  static final _storeCatalogSync = StoreCatalogSyncService();
 
   static Future<Map<KioskCategory, List<KioskProduct>>> load() async {
+    // Automatically pull a newer store-master catalog when available. Any
+    // network/configuration failure is intentionally ignored so the kiosk
+    // continues using its last known-good local catalog.
+    await _storeCatalogSync.refreshIfMasterChanged();
     final catalog = await _repository.load();
 
     // Only active categories are exposed to the customer kiosk. The
