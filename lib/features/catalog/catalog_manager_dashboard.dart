@@ -10,6 +10,7 @@ import 'catalog_backup_restore.dart';
 import 'catalog_audit_history.dart';
 import 'category_manager.dart';
 import 'product_manager.dart';
+import 'store_catalog_master_service.dart';
 
 class CatalogManagerDashboardPage extends StatefulWidget {
   const CatalogManagerDashboardPage({super.key});
@@ -22,6 +23,7 @@ class CatalogManagerDashboardPage extends StatefulWidget {
 class _CatalogManagerDashboardPageState
     extends State<CatalogManagerDashboardPage> {
   final _repository = const ProductCatalogRepository();
+  final _masterService = StoreCatalogMasterService();
   ProductCatalog? _catalog;
   CatalogValidationReport? _report;
   bool _loading = true;
@@ -35,7 +37,8 @@ class _CatalogManagerDashboardPageState
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final catalog = await _repository.load();
+      final catalog = await _masterService.loadMasterCatalog();
+      await _repository.saveCatalog(catalog, auditAction: 'Refresh catalog from store master');
       final report = CatalogValidator().validate(catalog);
       if (!mounted) return;
       setState(() {
@@ -157,8 +160,8 @@ class _CatalogManagerDashboardPageState
                     Expanded(
                       child: Text(
                         _loading
-                            ? 'Loading the product catalog...'
-                            : 'Changes made here are stored through the Product Catalog and flow to the customer kiosk through the catalog adapter.',
+                            ? 'Loading the store master catalog...'
+                            : 'Catalog changes are committed to the store master first, then cached locally for kiosk operation.',
                         style: TextStyle(color: Colors.grey.shade800),
                       ),
                     ),

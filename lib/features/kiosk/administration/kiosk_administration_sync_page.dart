@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../orders/kiosk_order_repository.dart';
 import '../../reporting_sync/reporting_sync_result.dart';
 import '../../reporting_sync/reporting_sync_service.dart';
+import '../../catalog/store_catalog_sync_service.dart';
 
 /// Administrative synchronization tools.
 ///
@@ -21,13 +22,132 @@ class _KioskAdministrationSyncPageState
     extends State<KioskAdministrationSyncPage> {
   final KioskOrderRepository _orderRepository = KioskOrderRepository();
   final ReportingSyncService _reportingSyncService = ReportingSyncService();
+  final StoreCatalogSyncService _catalogSyncService = StoreCatalogSyncService();
 
+  bool _catalogSyncing = false;
   bool _historicalSyncing = false;
   bool _transactionSyncing = false;
   bool _restoreSyncing = false;
+  bool? _masterCatalogExists;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkMasterCatalog();
+  }
+
+  Future<void> _checkMasterCatalog() async {
+    try {
+      final exists = await _catalogSyncService.masterCatalogExists();
+      if (mounted) setState(() => _masterCatalogExists = exists);
+    } catch (_) {
+      if (mounted) setState(() => _masterCatalogExists = null);
+    }
+  }
+
+  Future<void> _initializeMasterCatalog() async {
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('INITIALIZE STORE MASTER CATALOG'),
+        content: const Text(
+          'This is a one-time setup operation. The current kiosk catalog will be published as the store master only if no master catalog exists yet. Once initialized, this kiosk will use the database master as the source of truth.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.cloud_upload_outlined),
+            label: const Text('INITIALIZE MASTER'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _catalogSyncing = true);
+    try {
+      final result = await _catalogSyncService.initializeEmptyMasterFromLocal();
+      if (!mounted) return;
+      setState(() => _masterCatalogExists = true);
+      await _showMessage(
+        title: 'MASTER CATALOG INITIALIZED',
+        message: result.summary,
+      );
+    } catch (error) {
+      if (mounted) await _showError('MASTER INITIALIZATION FAILED', error);
+    } finally {
+      if (mounted) setState(() => _catalogSyncing = false);
+    }
+  }
+
+  Future<void> _refreshProductCatalog() async {
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+      return;
+    }
+
+    setState(() => _catalogSyncing = true);
+    try {
+      final changed = await _catalogSyncService.isMasterCatalogChanged();
+      if (!mounted) return;
+
+      if (!changed) {
+        final result = await _catalogSyncService.refreshFromMaster();
+        if (!mounted) return;
+        await _showMessage(
+          title: 'CATALOG ALREADY CURRENT',
+          message: result.summary,
+        );
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('REFRESH PRODUCT CATALOG'),
+          content: const Text(
+            'Download the latest store master catalog to this kiosk?\n\n'
+            'This updates the local kiosk copy of categories, products, sizes, variants, options, and add-ons. The database master is not changed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton.icon(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              icon: const Icon(Icons.cloud_download_outlined),
+              label: const Text('REFRESH CATALOG'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      final result = await _catalogSyncService.refreshFromMaster(force: true);
+      if (!mounted) return;
+      await _showMessage(
+        title: 'CATALOG REFRESH COMPLETE',
+        message: result.summary,
+      );
+    } catch (error) {
+      if (mounted) await _showError('CATALOG REFRESH FAILED', error);
+    } finally {
+      if (mounted) setState(() => _catalogSyncing = false);
+    }
+  }
 
   Future<void> _syncHistoricalDrinks() async {
-    if (_historicalSyncing || _transactionSyncing) return;
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
 
     setState(() => _historicalSyncing = true);
 
@@ -97,7 +217,7 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _syncAllTransactions() async {
-    if (_historicalSyncing || _transactionSyncing) return;
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -144,7 +264,7 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _restoreMissingTransactions() async {
-    if (_historicalSyncing || _transactionSyncing || _restoreSyncing) return;
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
 
     setState(() => _restoreSyncing = true);
 
@@ -342,6 +462,45 @@ class _KioskAdministrationSyncPageState
                     style: TextStyle(color: Colors.black54),
                   ),
                   const SizedBox(height: 28),
+                  if (_masterCatalogExists == false) ...[
+                    _SyncCard(
+                      icon: Icons.cloud_upload_outlined,
+                      title: 'INITIALIZE MASTER CATALOG',
+                      description:
+                          'One-time setup: publish this kiosk current catalog to the store database. This is allowed only when the store has no master catalog yet.',
+                      buttonLabel: _catalogSyncing
+                          ? 'INITIALIZING MASTER...'
+                          : 'INITIALIZE MASTER CATALOG',
+                      syncing: _catalogSyncing,
+                      onPressed: (_catalogSyncing ||
+                              _historicalSyncing ||
+                              _transactionSyncing ||
+                              _restoreSyncing)
+                          ? null
+                          : _initializeMasterCatalog,
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  _SyncCard(
+                    icon: Icons.menu_book_outlined,
+                    title: 'PRODUCT CATALOG',
+                    description:
+                        'Download the latest store master catalog to this kiosk. '
+                        'Categories, products, sizes, variants, options, and add-ons '
+                        'are synchronized to the local operational copy. The database '
+                        'master is never overwritten by this action.',
+                    buttonLabel: _catalogSyncing
+                        ? 'REFRESHING CATALOG...'
+                        : 'REFRESH PRODUCT CATALOG',
+                    syncing: _catalogSyncing,
+                    onPressed: (_catalogSyncing ||
+                            _historicalSyncing ||
+                            _transactionSyncing ||
+                            _restoreSyncing)
+                        ? null
+                        : _refreshProductCatalog,
+                  ),
+                  const SizedBox(height: 16),
                   _SyncCard(
                     icon: Icons.thermostat_outlined,
                     title: 'HISTORICAL DRINK SYNC',
@@ -352,7 +511,7 @@ class _KioskAdministrationSyncPageState
                         ? 'SYNCING HISTORICAL...'
                         : 'SYNC HISTORICAL DRINKS',
                     syncing: _historicalSyncing,
-                    onPressed: (_historicalSyncing || _transactionSyncing)
+                    onPressed: (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing)
                         ? null
                         : _syncHistoricalDrinks,
                   ),
@@ -368,7 +527,7 @@ class _KioskAdministrationSyncPageState
                         ? 'SYNCING ALL TRANSACTIONS...'
                         : 'SYNC ALL TRANSACTIONS',
                     syncing: _transactionSyncing,
-                    onPressed: (_historicalSyncing || _transactionSyncing)
+                    onPressed: (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing)
                         ? null
                         : _syncAllTransactions,
                   ),

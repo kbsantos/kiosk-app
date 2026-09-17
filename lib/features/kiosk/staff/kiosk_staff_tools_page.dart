@@ -4,7 +4,6 @@ import '../kiosk_idle_timeout.dart';
 import '../pages/kiosk_order_history_page.dart';
 import '../pages/kiosk_order_queue_page.dart';
 import '../settings/kiosk_settings_page.dart';
-import 'kiosk_catalog_manager_page.dart';
 import 'kiosk_staff_gate.dart';
 import '../administration/kiosk_administration_sync_page.dart';
 
@@ -179,12 +178,6 @@ class KioskStaffToolsPage extends StatelessWidget {
             context,
             const KioskAdministrationSyncPage(),
           ),
-        ),
-        _StaffActionData(
-          icon: Icons.inventory_2_outlined,
-          title: 'PRODUCT CATALOG',
-          subtitle: 'Browse, search and manage the menu catalog.',
-          onTap: () => _openPage(context, const KioskCatalogManagerPage()),
         ),
         _StaffActionData(
           icon: Icons.settings_outlined,
