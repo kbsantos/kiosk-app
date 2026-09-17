@@ -1,10 +1,10 @@
-# Bigger Brew Kiosk — Clean Unified Baseline
+# MyKiosk Kiosk — Clean Unified Baseline
 
-This is the clean standalone Bigger Brew customer-ordering kiosk project.
+This is the clean standalone MyKiosk customer-ordering kiosk project.
 
 ## Important architecture
 
-The Kiosk is a **completely separate Flutter application** from the Bigger Brew Recipe Guide / Barista application.
+The Kiosk is a **completely separate Flutter application** from the MyKiosk Recipe Guide / Barista application.
 
 The Kiosk does **not** import:
 
@@ -20,10 +20,10 @@ Instead, the Kiosk contains a neutral commercial Product Catalog JSON file.
 ```text
 Product Catalog
       │
-      ├── Bigger Brew Kiosk
+      ├── MyKiosk Kiosk
       │       └── Kiosk UI / Cart / Orders
       │
-      └── Bigger Brew Recipe Guide
+      └── MyKiosk Recipe Guide
               └── Recipes / Barista Mode
 ```
 
@@ -125,7 +125,6 @@ Product Catalog asset at `assets/catalog/product_catalog.v4.commercial.json`.
 Kiosk-only prices remain a temporary local bridge until K3 centralized pricing.
 The Kiosk never resolves `recipeRef` and has no dependency on the Recipe Guide.
 
-
 ## K3 — Pricing & Customization
 
 K3 introduces the customer-facing drink size selection structure:
@@ -142,17 +141,16 @@ Rice Meal add-ons are read from the Product Catalog rather than hardcoded in the
 
 The right-side persistent order panel remains the primary order view.
 
-
 ### K3 analyzer fix
 
 The K3 package was corrected after local `flutter analyze` reported:
+
 - missing `KioskProduct.options`
 - unused product catalog model import
 - unused `kiosk_cart_page.dart` import
 - relative import in the K3 test
 
 These are fixed in the K3 Fixed package.
-
 
 ### K3 final analyzer fix
 
@@ -161,7 +159,6 @@ The latest local analyzer output showed one remaining model-field mismatch:
 It also treated `price` as nullable even though the kiosk-side option model stores it as `int`.
 
 Both references are corrected in this package.
-
 
 ## K3.1 — Centralized Pricing Layer
 
@@ -175,10 +172,9 @@ When the approved price list is supplied, update the centralized maps there. UI 
 
 This makes future price changes a data/configuration change instead of a widget-code change.
 
-
 ## K3.2 — Menu Pricing Applied
 
-Pricing was updated from the supplied Bigger Brew menu image.
+Pricing was updated from the supplied MyKiosk menu image.
 
 - Regular prices are taken directly from the menu.
 - Go Big = Regular + ₱10.
@@ -187,12 +183,12 @@ Pricing was updated from the supplied Bigger Brew menu image.
 - Slushies remain unpriced because they do not appear on the supplied menu image.
 - Rice meal prices remain as previously configured where they are not part of this drink menu.
 
-
 ### K3.2 pricing source
 
 The supplied menu image is the authoritative source for this pricing update.
 
 Applied:
+
 - Afforda Milktea
 - Signature Milktea
 - Afforda Coffee
@@ -205,15 +201,16 @@ Applied:
 - Existing rice-meal/add-on prices already present in the catalog
 
 Sizing:
+
 - Regular = menu R price
 - Go Big = R + ₱10
 - Go Bigger = R + ₱40
 - Hot Coffee = one size only
 
 Not assigned:
+
 - Slushies, because no slushie prices are shown in the supplied image.
 - New add-ons shown in the image (Pearl, Nata, Espresso Shot, etc.) are not added in this pricing-only sprint; they should be added as catalog products/options in the customization sprint.
-
 
 ## K3.3 — Drink Customization
 
@@ -242,12 +239,12 @@ The selected size and add-ons are shown in the persistent right-side order panel
 
 These add-ons are sourced from the supplied menu image and are kept in the kiosk pricing layer until they are later promoted into the neutral catalog.
 
-
 ## K4.1 — Checkout / Order Review
 
 The checkout button now opens a dedicated checkout page.
 
 Included:
+
 - Full order review
 - Quantity and customization summary
 - Running total
@@ -258,7 +255,6 @@ Included:
 - Cart reset after confirmation
 
 No external payment gateway or POS submission is performed yet. This is intentionally the K4.1 customer-order flow.
-
 
 ## K4.2 — Local Order Persistence & Queue
 
@@ -272,6 +268,7 @@ Each new day starts a fresh queue sequence:
 - ...
 
 Persisted order records include:
+
 - Order number
 - Timestamp
 - Take Out / Dine In
@@ -287,18 +284,17 @@ A local Order Queue page is included for development/counter workflow. It can mo
 
 No cloud/POS synchronization is included yet.
 
-
 ## K4.2.1 Build/Test Fix
 
 Fixed the missing `KioskOrder` import in checkout and updated the legacy pricing test to match the now-configured menu prices.
-
 
 ## K4.3 — Customer Queue / Order Status
 
 After an order is saved and confirmed, the kiosk now opens a customer-facing Order Status screen.
 
 It displays:
-- Bigger Brew branding
+
+- MyKiosk branding
 - Queue number
 - Current order status
 - Order summary
@@ -312,28 +308,29 @@ The queue screen can return to the menu after the customer finishes viewing the 
 
 Cloud synchronization and a second physical customer display are not included yet.
 
-
 ## K4.4 — Payment Boundary
 
 K4.4 separates payment processing from checkout.
 
 Current method:
+
 - Pay at Counter
 - Payment status is stored as `pending`
 
 A `KioskPaymentProcessor` interface now defines the boundary for future:
+
 - GCash / QR payment provider
 - Card terminal
 - Other payment gateway
 
 No merchant credentials, payment API, QR payload, or fake payment confirmation is included. A real provider can be plugged in later without redesigning checkout or orders.
 
-
 ## K4.5 — Counter Order Management
 
 The Order Queue is now a proper counter workflow.
 
 Added:
+
 - Status filter chips for All, Pending, Preparing, and Ready
 - Active-order count
 - Full order detail dialog
@@ -349,7 +346,6 @@ Added:
 
 Completed and cancelled orders remain persisted in local storage but are removed from the active queue.
 
-
 ## K4.5.1 — Build/Test Fix
 
 Fixed the K4.5 issues found during local testing:
@@ -359,12 +355,12 @@ Fixed the K4.5 issues found during local testing:
 - Removed the invalid `const` use around `DateTime(...)` in the counter queue test.
 - Added regression coverage for sized drink pricing and counter order item details.
 
-
 ## K4.6 — Order History / End-of-Day
 
 Added a separate Order History screen for completed kiosk orders.
 
 Features:
+
 - Select a specific business date
 - Completed order count
 - Items sold count
@@ -382,12 +378,12 @@ Payment status remains separate from order status. This means the screen can exp
 
 No cloud/POS synchronization is included yet.
 
-
 ## K4.7 — Payment Completion
 
 Added manual payment completion for the current `Pay at Counter` flow.
 
 Staff can:
+
 - Mark a pending payment as `PAID` directly from the active Order Queue.
 - Mark a completed order as `PAID` from Order History.
 - See `PAID` vs `PENDING` clearly in the queue/history.
@@ -397,14 +393,14 @@ The kiosk still does not process GCash/card transactions. `PAID` is a staff conf
 
 End-of-day `COMPLETED SALES` continues to represent completed orders, while `PAYMENT STILL PENDING` now decreases when staff confirms payment.
 
-
 ## K4.8 — Receipt / Order Ticket
 
 Added a printable receipt/ticket flow.
 
 Features:
+
 - Dedicated receipt preview
-- Bigger Brew branding
+- MyKiosk branding
 - Order number
 - Time
 - Order type
@@ -420,15 +416,14 @@ Features:
 
 The receipt is a presentation/printing artifact only. It does not change order or payment state.
 
-
 K4.8.1 — Receipt navigation fix: receipt actions opened from the history dialog now navigate using the parent page context after closing the dialog.
-
 
 ## K4.9 — Order Cancellation / Refund
 
 Added cancellation and refund handling.
 
 Cancellation:
+
 - Staff can cancel an active order from the Order Queue.
 - A confirmation dialog is required.
 - An optional cancellation reason is stored.
@@ -436,12 +431,14 @@ Cancellation:
 - Cancellation does not automatically mark a payment as refunded.
 
 Refund:
+
 - Only a `paid` payment can be refunded.
 - Refund confirmation is required.
 - Refund changes payment status to `refunded`.
 - The kiosk does not move money through a payment gateway; this is a staff accounting confirmation.
 
 Order History now supports:
+
 - Completed filter
 - Cancelled filter
 - All orders filter
@@ -452,19 +449,19 @@ Completed sales remain based on completed orders. Refunded amounts are shown sep
 
 K4.9.1 — Refund guard tightened: refunds are only valid for orders that are both `cancelled` and `paid`; cancellation uses its dedicated confirmation flow.
 
-
 K4.9.2 — Build fixes:
+
 - `_OrderCard` now receives Mark Paid and Cancel callbacks from the queue State.
 - Removed Cancelled from the generic status popup because cancellation uses its dedicated confirmation/reason flow.
 - Receipt PDF callback now returns `Future<Uint8List>` as required by `printing`.
 - Receipt regression test no longer relies on an invalid const getter expression.
-
 
 ## K4.10 — Kiosk Settings & Operational Controls
 
 Added a dedicated Kiosk Settings page.
 
 Controls:
+
 - Store OPEN / CLOSED mode
 - Store display name
 - Receipt paper preference: 58mm / 80mm
@@ -477,18 +474,18 @@ Order sequence remains date-based and automatically starts at BB-001 on a new ca
 
 This is kiosk-local operational configuration. Real printer-device selection, staff authentication, and backend synchronization remain future POS/backend work.
 
-
 K4.10.1 — Build correction:
+
 - Rebuilt the nested FutureBuilder/LayoutBuilder section in `kiosk_home_page.dart` with balanced widget closures.
 - Fixed the repository test's non-constant `product.sizes.single` declaration.
 - Removed unused test model imports reported by the analyzer.
-
 
 ## K4.11 — Staff/Admin Access
 
 Added a local 4-digit staff PIN gate.
 
 Protected from the customer-facing kiosk:
+
 - Kiosk Settings
 - Order History
 - Order Queue
@@ -497,7 +494,6 @@ Protected from the customer-facing kiosk:
 Fresh installation default PIN: `1234`. Staff authentication is requested once per 30-minute in-app session.
 
 The PIN can be changed from Kiosk Settings after staff authentication. This is a local kiosk control, not cloud authentication; backend/user accounts are intentionally deferred to K5.
-
 
 ## K4.11.1 — Staff PIN Dialog Lifecycle Fix
 
@@ -508,7 +504,6 @@ The staff PIN dialog now owns its controller in a dedicated StatefulWidget and
 disposes it from that widget's `dispose()` lifecycle. This prevents:
 `A TextEditingController was used after being disposed`
 and the cascading `_dependents.isEmpty` / wrong build scope assertions.
-
 
 ## K4.11.2 — Review Order / Payment / Printing / Size UI
 
@@ -523,6 +518,7 @@ and the cascading `_dependents.isEmpty` / wrong build scope assertions.
 Added Excel export to the End-of-Day / Order History workflow.
 
 The export includes:
+
 - Summary information for the selected business date.
 - Completed sales and refund totals.
 - Payment-status information.
@@ -585,7 +581,6 @@ The Orders worksheet now includes an `Order Mode` column so Employee and Custome
 
 Historical orders without `orderMode` remain valid and are loaded as `Customer` by default.
 
-
 ## K4.11.4.2 — Kitchen Preparation Routing
 
 Added menu-level **Kitchen Prepared** tagging. Staff can enable or disable
@@ -596,6 +591,7 @@ KITCHEN COPY section containing only kitchen-prepared items and kitchen-tagged
 add-ons.
 
 Default behavior:
+
 - Rice Meals are kitchen-prepared by default.
 - Rice Meal add-ons are kitchen-prepared by default.
 - Drink products and drink add-ons are not kitchen-prepared by default.
@@ -659,7 +655,7 @@ payment status, Employee Order Mode, printing, or End-of-Day reporting.
 ## K4.11.7 — Production / Store Mode
 
 The customer-facing kiosk now hides staff navigation behind the protected
-5-tap `BIGGER BREW` logo gesture. Staff authentication still uses the existing
+5-tap `MyKiosk` logo gesture. Staff authentication still uses the existing
 4-digit PIN and 30-minute session. Authenticated staff are routed through the
 Staff Tools hub for Order Queue, Order History/EOD, Settings, and explicit
 exit back to customer mode.
@@ -706,7 +702,6 @@ Then manually verify the production kiosk on Chrome and the target tablet:
 8. Staff Mode exposes Queue, History/EOD, and Settings.
 9. Exiting Staff Mode locks staff access again.
 10. Store Closed does not expose customer Settings access.
-
 
 ## K15.2 — Catalog Manager
 

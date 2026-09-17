@@ -1,4 +1,4 @@
-# Bigger Brew Kiosk — Sprint K1 Base
+# MyKiosk Kiosk — Sprint K1 Base
 
 This is the clean K1 baseline.
 
@@ -60,8 +60,7 @@ Navigator.of(context).push(
 
 ## Next sprint
 
-Sprint K2 will connect the kiosk to the existing Bigger Brew menu/repository system.
-
+Sprint K2 will connect the kiosk to the existing MyKiosk menu/repository system.
 
 ## Historical baseline note
 

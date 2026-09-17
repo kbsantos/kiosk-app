@@ -1,4 +1,4 @@
-# Bigger Brew Kiosk - Review Fixes
+# MyKiosk Kiosk - Review Fixes
 
 Reviewed from the uploaded `bigger_brew_kiosk(2).zip` source.
 

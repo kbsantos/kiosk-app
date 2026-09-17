@@ -1,6 +1,7 @@
-# Bigger Brew K24.12.21 Release Cleanup
+# MyKiosk K24.12.21 Release Cleanup
 
 ## Confirmed functional areas
+
 - Product management
 - Product variants
 - Product options/add-ons
@@ -19,10 +20,13 @@
 - Hot/Iced drink cup reporting
 
 ## Intentionally paused
+
 - User Roles
 
 ## Final local verification
+
 Run on the development machine:
+
 1. `flutter clean`
 2. `flutter pub get`
 3. `flutter analyze`

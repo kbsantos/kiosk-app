@@ -46,16 +46,16 @@ class BiggerBrewKioskApp extends StatelessWidget {
         behavior: HitTestBehavior.translucent,
         onPointerDown: (_) => kioskIdleTimeoutController.touch(),
         child: MaterialApp(
-        navigatorKey: kioskNavigatorKey,
-        debugShowCheckedModeBanner: false,
-        title: 'Bigger Brew Kiosk',
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFFC69214),
+          navigatorKey: kioskNavigatorKey,
+          debugShowCheckedModeBanner: false,
+          title: 'MyKiosk Kiosk',
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: const Color(0xFFC69214),
+            ),
+            scaffoldBackgroundColor: const Color(0xFFF5F2ED),
           ),
-          scaffoldBackgroundColor: const Color(0xFFF5F2ED),
-        ),
           home: const KioskHomePage(),
         ),
       ),

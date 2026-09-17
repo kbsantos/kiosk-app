@@ -1,4 +1,4 @@
--- Bigger Brew Kiosk reporting identity resolution
+-- MyKiosk Kiosk reporting identity resolution
 -- Store ID is stores.id (uuid).
 -- Device/Kiosk Code is devices.device_code (text).
 -- The kiosk must not directly SELECT from the RLS-protected devices table.

@@ -10,7 +10,7 @@ Direct ESC/POS receipt generation/printing is intentionally the next K18 step. T
 
 1. Turn on the XP-58H.
 2. Pair the XP-58H with the kiosk device using the operating system's Bluetooth settings.
-3. Open **BIGGER BREW → Staff Mode → Kiosk Settings → Receipt Printer**.
+3. Open **MyKiosk → Staff Mode → Kiosk Settings → Receipt Printer**.
 4. Refresh the paired Bluetooth printers.
 5. Select the XP-58H.
 6. The kiosk connects to it and stores its Bluetooth address/name.
@@ -20,7 +20,7 @@ The Bluetooth plugin used by this stage reads already-paired printers. It does n
 
 ## Android
 
-The `print_bluetooth_thermal` package supports Android and checks `BLUETOOTH_CONNECT` permission on Android 12+; it does not require location permission for this printer workflow. If the app reports that Nearby devices permission is missing, grant Bluetooth/Nearby devices permission to Bigger Brew in Android settings and refresh the printer list.
+The `print_bluetooth_thermal` package supports Android and checks `BLUETOOTH_CONNECT` permission on Android 12+; it does not require location permission for this printer workflow. If the app reports that Nearby devices permission is missing, grant Bluetooth/Nearby devices permission to MyKiosk in Android settings and refresh the printer list.
 
 If the project later adds an explicit Android runtime-permission flow, keep the permissions limited to the Bluetooth printer use case.
 

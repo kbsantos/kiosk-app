@@ -128,7 +128,7 @@ void main() {
 
     expect(settings.storeOpen, isTrue);
     expect(settings.employeeOrderMode, isTrue);
-    expect(settings.storeName, 'BIGGER BREW');
+    expect(settings.storeName, 'MyKiosk');
     expect(settings.printerPaperSize, '58mm');
   });
 

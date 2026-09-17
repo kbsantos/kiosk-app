@@ -197,7 +197,8 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Currency set to ${KioskCurrency.definition.name} (${KioskCurrency.symbol}).'),
+        content: Text(
+            'Currency set to ${KioskCurrency.definition.name} (${KioskCurrency.symbol}).'),
         behavior: SnackBarBehavior.floating,
       ),
     );
@@ -281,13 +282,14 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
       _settings = _settings.copyWith(
         printCustomerReceipt: option == 'customerReceipt' ? value : null,
         autoPrintReceipt: option == 'autoReceipt' ? value : null,
-        printOrderTicket: option == 'orderTicket' || option == 'kitchenCopy' ? value : null,
+        printOrderTicket:
+            option == 'orderTicket' || option == 'kitchenCopy' ? value : null,
         printBaristaCopy: option == 'baristaCopy' ? value : null,
-        printKitchenCopy: option == 'orderTicket' || option == 'kitchenCopy' ? value : null,
+        printKitchenCopy:
+            option == 'orderTicket' || option == 'kitchenCopy' ? value : null,
         printSingleItemPerTicket: option == 'singleItem' ? value : null,
         groupIdenticalItems: option == 'groupIdentical' ? value : null,
-        openCashDrawerOnCashPayment:
-            option == 'cashDrawer' ? value : null,
+        openCashDrawerOnCashPayment: option == 'cashDrawer' ? value : null,
       );
     });
   }
@@ -387,7 +389,7 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
           _bluetoothPermissionGranted = false;
           _bluetoothPrinters = const [];
           _bluetoothStatus =
-              'Nearby devices permission is required. Allow it for Bigger Brew.';
+              'Nearby devices permission is required. Allow it for MyKiosk.';
           _loadingBluetooth = false;
         });
         return;
@@ -814,12 +816,11 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
                               textCapitalization: TextCapitalization.characters,
                               decoration: const InputDecoration(
                                 labelText: 'Store name',
-                                hintText: 'BIGGER BREW',
+                                hintText: 'MyKiosk',
                                 border: OutlineInputBorder(),
                               ),
                             ),
                           ),
-
                         ],
                       ),
                       const SizedBox(height: 14),
@@ -909,12 +910,14 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
                             .map(
                               (currency) => DropdownMenuItem<String>(
                                 value: currency.code,
-                                child: Text('${currency.code} (${currency.symbol}) — ${currency.name}'),
+                                child: Text(
+                                    '${currency.code} (${currency.symbol}) — ${currency.name}'),
                               ),
                             )
                             .toList(),
                         onChanged: (value) {
-                          if (value != null && value != _settings.currencyCode) {
+                          if (value != null &&
+                              value != _settings.currencyCode) {
                             _saveCurrency(value);
                           }
                         },

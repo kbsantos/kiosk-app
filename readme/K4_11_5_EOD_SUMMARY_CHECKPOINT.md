@@ -1,4 +1,4 @@
-# Bigger Brew Kiosk — K4.11.5 EOD Excel Summary
+# MyKiosk Kiosk — K4.11.5 EOD Excel Summary
 
 ## Completed
 

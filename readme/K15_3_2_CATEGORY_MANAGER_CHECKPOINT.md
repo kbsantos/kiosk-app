@@ -1,9 +1,11 @@
-# Bigger Brew Kiosk — K15.3.2 Category Manager
+# MyKiosk Kiosk — K15.3.2 Category Manager
 
 ## Status
+
 Implemented.
 
 ## Scope
+
 - Added a staff-only Category Manager screen.
 - Loads categories from ProductCatalogRepository.
 - Displays category ID, name, subtitle, active state, and product count.
@@ -15,12 +17,14 @@ Implemented.
 - Existing product, option, ordering, checkout, and customer kiosk flows were not modified.
 
 ## Safety
+
 - Changes remain local/unsaved until SAVE is pressed.
 - Repository validation runs before persistence.
 - Existing repository backup behavior remains in effect.
 - No category deletion was added; disabling a category is the safe removal mechanism.
 
 ## Verification
+
 Run:
 
 ```bash

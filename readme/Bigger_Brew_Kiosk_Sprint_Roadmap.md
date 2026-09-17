@@ -1,11 +1,11 @@
-# Bigger Brew Kiosk --- Sprint Roadmap
+# MyKiosk Kiosk --- Sprint Roadmap
 
-**Project:** Bigger Brew Barista / Customer Ordering Kiosk\
+**Project:** MyKiosk Barista / Customer Ordering Kiosk\
 **Document purpose:** Living sprint plan. Update this file at the end of
 each development session so the next session can continue from the
 latest status.
 
-------------------------------------------------------------------------
+---
 
 ## Current Overall Status
 
@@ -16,9 +16,9 @@ latest status.
 ### Core principle
 
 The kiosk should be a separate customer-ordering experience, while
-continuing to use the existing Bigger Brew recipe/menu system.
+continuing to use the existing MyKiosk recipe/menu system.
 
-``` text
+```text
 Existing App
 │
 ├── Home
@@ -50,7 +50,7 @@ NEW CUSTOMER KIOSK
 └── Order Complete
 ```
 
-------------------------------------------------------------------------
+---
 
 # Sprint K1 --- Kiosk Foundation
 
@@ -63,7 +63,7 @@ the existing app.
 
 ### Files
 
-``` text
+```text
 lib/features/kiosk/
 ├── kiosk_page.dart
 ├── models/
@@ -78,42 +78,46 @@ lib/features/kiosk/
 
 ### Included
 
--   Kiosk home
--   Category grid
--   Product cards
--   Cart model
--   Add/remove items
--   Quantity controls
--   Rice Meals
--   Rice Meal add-ons
+- Kiosk home
+- Category grid
+- Product cards
+- Cart model
+- Add/remove items
+- Quantity controls
+- Rice Meals
+- Rice Meal add-ons
 
 ### Rice Meals
 
-  Item                         Price
-  -------------------------- -------
-  Hungarian Sausage w/ Egg       ₱85
-  Liempo                         ₱85
-  Lechon Kawali                  ₱85
-  Sisig                          ₱85
-  Fried Chicken                  ₱80
-  Bacon & Egg                    ₱80
-  Spam & Egg                     ₱80
-  Burger Steak                   ₱70
-  Chicken Pastil                 ₱70
+Item Price
+
+---
+
+Hungarian Sausage w/ Egg ₱85
+Liempo ₱85
+Lechon Kawali ₱85
+Sisig ₱85
+Fried Chicken ₱80
+Bacon & Egg ₱80
+Spam & Egg ₱80
+Burger Steak ₱70
+Chicken Pastil ₱70
 
 ### Rice Meal Add-ons
 
-  Add-on              Price
-  ----------------- -------
-  Extra Rice            ₱20
-  Garlic Mayo Dip       ₱10
-  Egg                   ₱15
+Add-on Price
+
+---
+
+Extra Rice ₱20
+Garlic Mayo Dip ₱10
+Egg ₱15
 
 ### Important
 
 K1 is intentionally isolated from `RecipePage` and `BaristaModePage`.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K2 --- Connect the Existing Menu
 
@@ -126,19 +130,19 @@ instead of maintaining duplicate menu information.
 
 ### Connect
 
--   Milk Tea
--   Fruit Tea
--   Coffee
--   Chocolate
--   Burgers
--   Merienda
--   Rice Meals
--   Add-ons where applicable
--   Accessories / Other Products as a shared product type
+- Milk Tea
+- Fruit Tea
+- Coffee
+- Chocolate
+- Burgers
+- Merienda
+- Rice Meals
+- Add-ons where applicable
+- Accessories / Other Products as a shared product type
 
 ### Architecture target
 
-``` text
+```text
 MenuRepository / RecipeRepository
               │
               ▼
@@ -163,7 +167,7 @@ project. K2 will be re-applied from this clean foundation.
 
 We should avoid having:
 
-``` text
+```text
 Recipe price = ₱45
 Kiosk price  = ₱50
 ```
@@ -171,7 +175,7 @@ Kiosk price  = ₱50
 or duplicate product definitions that later need to be synchronized
 manually.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K3 --- Product Customization
 
@@ -183,32 +187,32 @@ Build category-aware customization.
 
 Sizes:
 
--   12oz
--   22oz
--   1 Liter
+- 12oz
+- 22oz
+- 1 Liter
 
 Customer-facing size names may also be:
 
--   Regular
--   Go Big
--   Go Bigger
+- Regular
+- Go Big
+- Go Bigger
 
 The relationship between size name, volume, price, and recipe quantity
 should be centralized.
 
 Possible drink options:
 
--   Size
--   Flavor
--   Sugar
--   Ice
--   Add-ons
+- Size
+- Flavor
+- Sugar
+- Ice
+- Add-ons
 
 Only options applicable to the selected recipe should be shown.
 
 ## Rice Meals
 
-``` text
+```text
 Base meal
 +
 Extra Rice
@@ -222,7 +226,7 @@ No drink-size selector.
 
 ## Burgers
 
-``` text
+```text
 Burger
 +
 Applicable add-ons
@@ -232,7 +236,7 @@ Quantity
 
 ## Merienda
 
-``` text
+```text
 Item
 +
 Applicable add-ons
@@ -240,7 +244,7 @@ Applicable add-ons
 Quantity
 ```
 
-------------------------------------------------------------------------
+---
 
 # Sprint K4 --- Cart & Checkout
 
@@ -250,18 +254,18 @@ Expand the current cart into a complete order review.
 
 ### Cart must support
 
--   Add
--   Remove
--   Increase quantity
--   Decrease quantity
--   Clear order
--   Show selected options
--   Show item subtotal
--   Show order total
+- Add
+- Remove
+- Increase quantity
+- Decrease quantity
+- Clear order
+- Show selected options
+- Show item subtotal
+- Show order total
 
 Example:
 
-``` text
+```text
 YOUR ORDER
 
 Hungarian Sausage w/ Egg
@@ -291,7 +295,7 @@ Add a clear:
 
 action before final submission.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K5 --- Order Confirmation
 
@@ -299,7 +303,7 @@ action before final submission.
 
 After checkout:
 
-``` text
+```text
 ORDER CONFIRMED
 
 Order #1042
@@ -314,7 +318,7 @@ to be prepared.
 
 Example:
 
-``` text
+```text
 1041
 1042
 1043
@@ -322,7 +326,7 @@ Example:
 
 Later decide whether numbering resets daily.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K6 --- Order Persistence
 
@@ -332,7 +336,7 @@ Store kiosk orders locally.
 
 Target structure:
 
-``` text
+```text
 Order
 ├── orderNumber
 ├── date/time
@@ -345,15 +349,15 @@ Order
 
 Statuses:
 
--   Pending
--   Preparing
--   Ready
--   Completed
--   Cancelled
+- Pending
+- Preparing
+- Ready
+- Completed
+- Cancelled
 
 This becomes the foundation for staff order management.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K7 --- Recent Orders / Order History
 
@@ -372,7 +376,7 @@ rather than:
 
 Example:
 
-``` text
+```text
 ORDER #1042
 2 items
 ₱265
@@ -381,7 +385,7 @@ Today • 8:42 PM
 [ VIEW ]
 ```
 
-------------------------------------------------------------------------
+---
 
 # Sprint K8 --- Kiosk Order Management
 
@@ -391,7 +395,7 @@ Create a staff-facing order management screen.
 
 Example:
 
-``` text
+```text
 ORDERS
 
 ┌──────────────────────────┐
@@ -406,7 +410,7 @@ ORDERS
 
 Order progression:
 
-``` text
+```text
 Pending
    ↓
 Preparing
@@ -418,7 +422,7 @@ Completed
 
 This should eventually integrate with the existing Barista Mode concept.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K9 --- Kiosk UX / Visual Polish
 
@@ -428,29 +432,29 @@ Optimize the customer-facing interface for touchscreen use.
 
 ### Design goals
 
--   Large buttons
--   Large prices
--   Large product names
--   Large category cards
--   Large cart button
--   Large checkout button
--   Minimal text entry
--   Fast navigation
+- Large buttons
+- Large prices
+- Large product names
+- Large category cards
+- Large cart button
+- Large checkout button
+- Minimal text entry
+- Fast navigation
 
-### Bigger Brew visual language
+### MyKiosk visual language
 
 Use:
 
--   Bigger Brew gold
--   Dark brown / black
--   Cream / light background
--   Bigger Brew logo
--   Large readable typography
+- MyKiosk gold
+- Dark brown / black
+- Cream / light background
+- MyKiosk logo
+- Large readable typography
 
 The kiosk should be more visual and touch-friendly than the internal
 recipe/admin pages.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K10 --- Kiosk Navigation & Safety
 
@@ -460,7 +464,7 @@ recipe/admin pages.
 
 Example:
 
-``` text
+```text
 Customer starts order
        ↓
 No activity
@@ -480,7 +484,7 @@ Prevent customers from accidentally leaving the kiosk flow.
 
 A new customer should always start with a clean state.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K11 --- Receipt / Order Ticket
 
@@ -490,8 +494,8 @@ Create printable order output.
 
 Example:
 
-``` text
-        BIGGER BREW
+```text
+        MyKiosk
 
         ORDER #1042
         08/14/2026  8:42 PM
@@ -512,7 +516,7 @@ TOTAL             ₱265
 
 Later support thermal printers if required.
 
-------------------------------------------------------------------------
+---
 
 # Sprint K12 --- Production / Store Mode
 
@@ -522,7 +526,7 @@ Later support thermal printers if required.
 
 Application opens directly into:
 
-``` text
+```text
 KIOSK HOME
 ```
 
@@ -534,7 +538,7 @@ Use a protected staff gesture or PIN.
 
 Possible flow:
 
-``` text
+```text
 5 taps on logo
        ↓
 PIN
@@ -544,12 +548,12 @@ Staff Mode
 
 This prevents customers from accessing:
 
--   Recipe Editor
--   Barista configuration
--   Internal tools
--   Other administrative pages
+- Recipe Editor
+- Barista configuration
+- Internal tools
+- Other administrative pages
 
-------------------------------------------------------------------------
+---
 
 # Sprint K13 --- Testing
 
@@ -559,40 +563,40 @@ Create dedicated kiosk tests.
 
 ### Product tests
 
--   Product displays correctly
--   Correct price
--   Correct add-on price
--   Quantity handling
+- Product displays correctly
+- Correct price
+- Correct add-on price
+- Quantity handling
 
 ### Cart tests
 
--   Add
--   Remove
--   Increase
--   Decrease
--   Total calculation
+- Add
+- Remove
+- Increase
+- Decrease
+- Total calculation
 
 ### Drink tests
 
--   12oz
--   22oz
--   1L
--   Correct recipe/price mapping
+- 12oz
+- 22oz
+- 1L
+- Correct recipe/price mapping
 
 ### Checkout tests
 
--   Order number
--   Order total
--   Order persistence
--   Order status
+- Order number
+- Order total
+- Order persistence
+- Order status
 
 ### Reset tests
 
--   Idle timeout
--   Abandoned cart
--   New customer starts clean
+- Idle timeout
+- Abandoned cart
+- New customer starts clean
 
-------------------------------------------------------------------------
+---
 
 # Sprint K14 --- APK / Deployment
 
@@ -600,7 +604,7 @@ Create dedicated kiosk tests.
 
 Final validation:
 
-``` bash
+```bash
 flutter clean
 flutter pub get
 flutter analyze
@@ -610,11 +614,11 @@ flutter build apk --release
 
 Then test the APK on the actual kiosk/tablet hardware.
 
-------------------------------------------------------------------------
+---
 
 # Recommended Development Order
 
-``` text
+```text
 K1  Foundation
  ↓
 K2  Existing Menu Integration
@@ -644,7 +648,7 @@ K13 Testing
 K14 APK / Deployment
 ```
 
-------------------------------------------------------------------------
+---
 
 # Session Handoff / Change Log
 
@@ -715,7 +719,6 @@ kiosk/
 - Existing Recent Drinks page
 - Existing recipe editor
 
-
 ---
 
 ---
@@ -766,47 +769,50 @@ Finish local K2 verification and fix any compile/test issues. Once green, mark K
 
 # Decision Log
 
-  -----------------------------------------------------------------------
-  Date                                Decision
-  ----------------------------------- -----------------------------------
-  2026-08-14                          Kiosk will be developed as a
-                                      separate customer-facing feature.
+---
 
-  2026-08-14                          Existing recipe/menu system should
-                                      become the source of truth.
+Date Decision
 
-  2026-08-14                          Rice Meals are included in the
-                                      kiosk.
+---
 
-  2026-08-14                          Rice Meal add-ons: Extra Rice ₱20,
-                                      Garlic Mayo Dip ₱10, Egg ₱15.
+2026-08-14 Kiosk will be developed as a
+separate customer-facing feature.
 
-  2026-08-14                          Drink sizes include 12oz, 22oz, and
-                                      1 Liter.
+2026-08-14 Existing recipe/menu system should
+become the source of truth.
 
-  2026-08-14                          Kiosk Recent Orders is separate
-                                      from existing Recent Drinks.
+2026-08-14 Rice Meals are included in the
+kiosk.
 
-  2026-08-14                          Kiosk and RecipePage/BaristaMode
-                                      remain separate during early
+2026-08-14 Rice Meal add-ons: Extra Rice ₱20,
+Garlic Mayo Dip ₱10, Egg ₱15.
+
+2026-08-14 Drink sizes include 12oz, 22oz, and
+1 Liter.
+
+2026-08-14 Kiosk Recent Orders is separate
+from existing Recent Drinks.
+
+2026-08-14 Kiosk and RecipePage/BaristaMode
+remain separate during early
 
 | 2026-08-15 | K2 uses `MenuRepository.categories` as the kiosk drink-menu source of truth. |
 | 2026-08-15 | K2 does not invent existing drink prices because the current menu/recipe models do not contain selling prices. |
 | 2026-08-15 | Accessories use the same `KioskProduct` / cart architecture but remain unpopulated until actual products and prices are supplied. |
-                                      development.
-  -----------------------------------------------------------------------
+development.
 
+---
 
-2026-08-15                          K1 was restarted from a clean standalone
-                                      `bigger_brew_kiosk` baseline; prior K2
-                                      implementation notes are historical and
-                                      are not assumed to exist in this baseline.
+2026-08-15 K1 was restarted from a clean standalone
+`bigger_brew_kiosk` baseline; prior K2
+implementation notes are historical and
+are not assumed to exist in this baseline.
 
-2026-08-15                          K1 is marked complete after establishing
-                                      the kiosk foundation and direct
-                                      `KioskHomePage` application entry point.
+2026-08-15 K1 is marked complete after establishing
+the kiosk foundation and direct
+`KioskHomePage` application entry point.
 
-------------------------------------------------------------------------
+---
 
 # Working Rule
 
@@ -820,9 +826,8 @@ At the end of each kiosk development session:
 6.  Set the exact **Next Session** task.
 7.  Do not remove previous decisions unless explicitly superseded.
 
-This file is the single living roadmap for the Bigger Brew Kiosk
+This file is the single living roadmap for the MyKiosk Kiosk
 project.
-
 
 # Product Unification Plan — Shared Product Catalog
 
@@ -971,7 +976,7 @@ Another:
 
 ```text
 Product:
-    Bigger Brew Tumbler
+    MyKiosk Tumbler
 
 productType:
     accessory
@@ -1303,30 +1308,30 @@ This allows us to unify the **commercial product identity** without unifying the
 
 # Product Unification Decision Log
 
-| Date | Decision |
-|---|---|
-| 2026-08-15 | Kiosk and Recipe Guide are completely separate applications. |
-| 2026-08-15 | Neither application may depend on the other's Flutter source code. |
-| 2026-08-15 | A future shared Product Catalog will provide common commercial product identity. |
-| 2026-08-15 | Stable `productId` is the primary cross-application identity. |
-| 2026-08-15 | Product type and category are separate concepts. |
-| 2026-08-15 | Recipe instructions remain owned by Recipe Guide. |
-| 2026-08-15 | Ordering remains owned by Kiosk. |
-| 2026-08-15 | Inventory remains a future POS/inventory concern. |
-| 2026-08-15 | Kiosk must not import `RecipeRepository` from the Recipe Guide. |
-| 2026-08-15 | U1 Product Contract defined as a neutral JSON-based contract; no Flutter application dependency is introduced. |
-| 2026-08-15 | Stable `productId` is the cross-application product identity. |
-| 2026-08-15 | Product type, category, sizes, variants, and options are separate concepts in the contract. |
+| Date       | Decision                                                                                                            |
+| ---------- | ------------------------------------------------------------------------------------------------------------------- |
+| 2026-08-15 | Kiosk and Recipe Guide are completely separate applications.                                                        |
+| 2026-08-15 | Neither application may depend on the other's Flutter source code.                                                  |
+| 2026-08-15 | A future shared Product Catalog will provide common commercial product identity.                                    |
+| 2026-08-15 | Stable `productId` is the primary cross-application identity.                                                       |
+| 2026-08-15 | Product type and category are separate concepts.                                                                    |
+| 2026-08-15 | Recipe instructions remain owned by Recipe Guide.                                                                   |
+| 2026-08-15 | Ordering remains owned by Kiosk.                                                                                    |
+| 2026-08-15 | Inventory remains a future POS/inventory concern.                                                                   |
+| 2026-08-15 | Kiosk must not import `RecipeRepository` from the Recipe Guide.                                                     |
+| 2026-08-15 | U1 Product Contract defined as a neutral JSON-based contract; no Flutter application dependency is introduced.      |
+| 2026-08-15 | Stable `productId` is the cross-application product identity.                                                       |
+| 2026-08-15 | Product type, category, sizes, variants, and options are separate concepts in the contract.                         |
 | 2026-08-15 | U1 does not establish commercial selling prices for existing products; pricing remains a later implementation step. |
 
 | 2026-08-15 | Product Catalog should use a neutral data contract rather than shared Flutter application code. |
-
 
 ## Latest Session Update — 2026-08-15
 
 ### Product Unification U1 — COMPLETE
 
 Completed:
+
 - Defined neutral Product Catalog contract.
 - Defined stable `productId`.
 - Defined `productType`: drink, food, accessory, addOn.
@@ -1339,6 +1344,7 @@ Completed:
 - Created U1 documentation.
 
 Files:
+
 - `schema/product_catalog.schema.json`
 - `examples/product_catalog.example.json`
 - `README.md`
@@ -1348,13 +1354,13 @@ Next:
 
 U2 should use the actual commercial menu/product list, but must not import Recipe Guide application code.
 
-
 ## Latest Session Update — 2026-08-15
 
 ### Product Unification U2 — COMPLETE
 
 Completed:
-- Populated the neutral Product Catalog from the actual Bigger Brew Barista `MenuRepository`.
+
+- Populated the neutral Product Catalog from the actual MyKiosk Barista `MenuRepository`.
 - Added 65 existing drink products.
 - Added the 9 K1 Rice Meals.
 - Added the 3 K1 Rice Meal add-on products.
@@ -1364,6 +1370,7 @@ Completed:
 - Kept drink pricing unset because the source menu does not provide selling prices.
 
 Files:
+
 - `catalog/product_catalog.v2.json`
 - `catalog/product_id_registry.json`
 - `catalog/catalog_summary.json`
@@ -1371,13 +1378,13 @@ Files:
 - `README.md`
 
 Catalog total: 77 products.
+
 - 65 drinks
 - 9 Rice Meals
 - 3 add-ons
 
 Next:
 **U3 — Product ID / Category Validation.**
-
 
 ---
 
@@ -1458,7 +1465,6 @@ test/kiosk/kiosk_kitchen_preparation_test.dart
 
 The Product Catalog is an architectural layer inside the kiosk codebase, not a separate kiosk application. It provides the neutral commercial product contract/data used by the kiosk and can later be consumed by other applications without sharing Flutter application source code.
 
-
 ---
 
 # Current Session — 2026-08-17
@@ -1513,12 +1519,15 @@ Run local Flutter verification, then proceed to K4 only after the K3 customer fl
 ---
 
 # Current Session — 2026-08-18
+
 ## K15.3.2 — Category Manager
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; Flutter runtime verification pending**
 
 ### Completed
+
 - Added `ProductCategory.toJson()` and `copyWith()`.
 - Added `ProductCatalog.copyWith()` for immutable catalog projections.
 - Extended `ProductCatalogRepository` with local category persistence using `shared_preferences`.
@@ -1537,6 +1546,7 @@ Run local Flutter verification, then proceed to K4 only after the K3 customer fl
 - Added `CategoryManagerPage` with touch-friendly list UI, edit dialogs, status switches, product counts, add/delete actions, and refresh.
 
 ### Files changed / added
+
 ```text
 lib/product_catalog/product_catalog_models.dart
 lib/product_catalog/product_catalog_repository.dart
@@ -1544,19 +1554,23 @@ lib/features/catalog/pages/category_manager.dart
 ```
 
 ### Architecture decision
+
 Category management operates on `ProductCategory` in the neutral Product Catalog. It does not modify or replace the kiosk `KioskCategory` enum.
 
 This preserves the established separation between the commercial catalog and kiosk-specific UI models.
 
 ### Important limitation
+
 The current customer-facing `KioskHomePage` still renders the legacy `KioskCategory.values` grid. Therefore, K15.3.2 persistence is complete, but newly created categories and category active/inactive state are **not yet automatically reflected in the customer home screen**.
 
 That integration should be the next task rather than silently maintaining a second category definition.
 
 ### Verification
+
 Flutter CLI is not installed in the current execution environment, so `flutter analyze` / `flutter test` could not be executed here.
 
 ### Exact Next Session
+
 **K15.3.3 — Dynamic Catalog Category Integration**
 
 Replace the customer-facing category grid's dependency on `KioskCategory.values` with the active Product Catalog category list while preserving the existing kiosk product/cart flow. Then add regression coverage for category add/edit/disable behavior.
@@ -1564,12 +1578,15 @@ Replace the customer-facing category grid's dependency on `KioskCategory.values`
 ---
 
 # Current Session — 2026-08-18
+
 ## K15.3.3 — Dynamic Catalog Category Integration
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; Flutter runtime verification pending**
 
 ### Completed
+
 - Replaced the customer-facing `KioskHomePage` category source from legacy `KioskCategory.values` + `KioskMenuData` to `KioskCatalogData.load()`.
 - Active Product Catalog categories now determine the customer-facing category grid.
 - Category product lists are loaded from the Product Catalog adapter.
@@ -1583,6 +1600,7 @@ Replace the customer-facing category grid's dependency on `KioskCategory.values`
 - Added K15.3.3 regression tests for known-category resolution, new dynamic categories, and stable-ID equality.
 
 ### Files changed / added
+
 ```text
 lib/features/kiosk/models/kiosk_models.dart
 lib/features/kiosk/pages/kiosk_home_page.dart
@@ -1591,6 +1609,7 @@ test/kiosk/kiosk_k15_3_3_dynamic_category_test.dart
 ```
 
 ### Architecture checkpoint
+
 ```text
 Product Catalog
       ↓
@@ -1612,12 +1631,15 @@ KioskProduct / Cart
 The Kiosk still does not import Recipe Guide Flutter source code. The Product Catalog remains the commercial identity source of truth.
 
 ### Verification
+
 Flutter/Dart CLI is not installed in the current execution environment, so `flutter analyze` / `flutter test` could not be executed here.
 
 ### Important note
+
 The implementation is source-level complete, but local Flutter verification is still required before treating this checkpoint as runtime-verified.
 
 ### Exact Next Session
+
 **K15.3.4 — Category/Product Assignment Management.**
 
 Add staff-side product category assignment so an existing product can be moved between active catalog categories without editing the raw JSON, while preserving stable product IDs and centralized pricing.
@@ -1625,12 +1647,15 @@ Add staff-side product category assignment so an existing product can be moved b
 ---
 
 # Current Session — 2026-08-18
+
 ## K15.3.4 — Category/Product Assignment Management
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; Flutter runtime verification pending**
 
 ### Completed
+
 - Added `CatalogProduct.copyWith()` while preserving stable `productId`.
 - Added catalog product serialization needed for safe local overrides.
 - Added local product persistence in `ProductCatalogRepository` using `shared_preferences`.
@@ -1647,6 +1672,7 @@ Add staff-side product category assignment so an existing product can be moved b
 - Added regression coverage for category reassignment and product serialization.
 
 ### Architecture checkpoint
+
 ```text
 Category Manager
       ↓
@@ -1662,12 +1688,15 @@ Customer Kiosk
 ```
 
 ### Verification
+
 Flutter/Dart CLI is not installed in the current execution environment, so `flutter analyze` / `flutter test` could not be executed here.
 
 ### Important note
+
 The implementation is source-level complete. Local Flutter verification is required before treating this checkpoint as runtime-verified.
 
 ### Exact Next Session
+
 **K15.3.5 — Product Manager.**
 
 Add staff-side product management for active/inactive status, availability, product details, and safe product editing while preserving stable product IDs and centralized catalog pricing.
@@ -1675,12 +1704,15 @@ Add staff-side product management for active/inactive status, availability, prod
 ---
 
 # Current Session — 2026-08-18
+
 ## K15.3.5 — Product Manager
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; Flutter runtime verification pending**
 
 ### Completed
+
 - Added `ProductManagerController` for loading and safely updating catalog products.
 - Added `ProductManagerPage` with:
   - product search by name, stable product ID, or SKU
@@ -1698,6 +1730,7 @@ Add staff-side product management for active/inactive status, availability, prod
 - Added K15.3.5 regression coverage for stable identity, editable state, serialization, and price preservation.
 
 ### Architecture checkpoint
+
 ```text
 Product Manager
       ↓
@@ -1713,12 +1746,15 @@ Customer Kiosk
 ```
 
 ### Important boundary
+
 Product Manager manages commercial/catalog metadata only. Recipe instructions remain outside the kiosk catalog, and inventory/cost management remains a future POS/inventory concern.
 
 ### Verification
+
 Flutter/Dart CLI is not installed in the current execution environment, so `flutter analyze` / `flutter test` could not be executed here.
 
 ### Files changed / added
+
 ```text
 lib/features/catalog/pages/product_manager.dart
 lib/features/catalog/pages/category_manager.dart
@@ -1726,6 +1762,7 @@ test/kiosk/kiosk_k15_3_5_product_manager_test.dart
 ```
 
 ### Exact Next Session
+
 **K15.3.6 — Product Size & Variant Manager.**
 
 Add staff-side management for product sizes and variants while preserving centralized selling-price ownership, stable size/variant IDs, and existing kiosk customization behavior.
@@ -1733,12 +1770,15 @@ Add staff-side management for product sizes and variants while preserving centra
 ---
 
 # Current Session — 2026-08-18
+
 ## K15.3.10 — Catalog Navigation Integration & Staff Entry Point
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; Flutter runtime verification pending**
 
 ### Completed
+
 - Added protected staff entry from the customer-facing `KioskHomePage` using the established five-tap logo gesture.
 - Added staff PIN dialog before entering Catalog Management.
 - Staff PIN is supplied through the `BIGGER_BREW_STAFF_PIN` Dart build define rather than storing a production credential in source.
@@ -1747,10 +1787,11 @@ Add staff-side management for product sizes and variants while preserving centra
 - Added K15.3.10 regression coverage for the staff access policy.
 
 ### Staff entry flow
+
 ```text
 Customer Kiosk Home
        ↓
-5 taps on BIGGER BREW title
+5 taps on MyKiosk title
        ↓
 STAFF ACCESS PIN
        ↓
@@ -1767,9 +1808,11 @@ Reload Product Catalog
 ```
 
 ### Security boundary
+
 The kiosk does not expose the Catalog Management Hub through a normal customer-facing button. The staff gesture is intentionally hidden, followed by PIN authentication. The default development PIN is `0000`; production builds must override it with `--dart-define=BIGGER_BREW_STAFF_PIN=<store PIN>` before deployment.
 
 ### Files changed / added
+
 ```text
 lib/features/kiosk/pages/kiosk_home_page.dart
 lib/features/kiosk/staff_access.dart
@@ -1779,6 +1822,7 @@ test/kiosk/kiosk_k15_3_10_staff_entry_test.dart
 ```
 
 ### Architecture checkpoint
+
 ```text
                     CUSTOMER KIOSK
                          │
@@ -1804,9 +1848,11 @@ test/kiosk/kiosk_k15_3_10_staff_entry_test.dart
 ```
 
 ### Verification
+
 Flutter/Dart CLI is not installed in the current execution environment, so `flutter analyze` / `flutter test` could not be executed here.
 
 ### Exact Next Session
+
 **K15.3.11 — Catalog Change Safety & Confirmation.**
 
 Add confirmation/guardrails for destructive catalog actions, unsaved edits, inactive-category impact, and product removal/disable operations before continuing deeper into staff administration.
@@ -1816,11 +1862,13 @@ Add confirmation/guardrails for destructive catalog actions, unsaved edits, inac
 # Working Project Merge — K15.3.24
 
 ## Status
+
 **MERGED INTO SUPPLIED WORKING KIOSK — source-level; Flutter runtime verification pending**
 
 The user's supplied working kiosk ZIP was used as the base project. The K15.3 catalog-management updates through K15.3.24 were merged into that project rather than replacing the working kiosk wholesale.
 
 ### Merged catalog capabilities
+
 - K15.3.11 Catalog change safety
 - K15.3.12 Backup / Restore
 - K15.3.13 Audit History
@@ -1837,9 +1885,11 @@ The user's supplied working kiosk ZIP was used as the base project. The K15.3 ca
 - K15.3.24 Sync Hardening / Failure Guards
 
 ### Working-kiosk preservation
+
 The existing customer kiosk, cart/checkout, payment, order queue/history, receipt/EOD, settings, staff session gate, and idle-timeout flows were preserved. `KioskCatalogManagerPage` now acts as a compatibility adapter into the unified K15.3 Catalog Management Hub.
 
 ### Dependency added
+
 ```text
 file_picker: ^7.1.0+1
 ```
@@ -1847,7 +1897,9 @@ file_picker: ^7.1.0+1
 Required by catalog JSON import/export and multi-kiosk sync.
 
 ### Runtime verification required
+
 Run on the development machine:
+
 ```bash
 flutter clean
 flutter pub get
@@ -1857,17 +1909,21 @@ flutter build apk --release
 ```
 
 ### Exact Next Session
+
 **K15.3.25 — Production Validation / Release Candidate.**
 
 Validate the merged working kiosk end-to-end, beginning with compiler/test failures from the real Flutter environment before adding further catalog functionality.
 
 # Current Session — 2026-08-20
+
 ## K17.2 — Centralized Pricing Authority
 
 ### Status
+
 **IMPLEMENTED — source-level checkpoint; local Flutter verification pending**
 
 ### Completed
+
 - Added `CatalogProduct.price` as the authoritative base selling price for products without size/variant pricing.
 - Product-level price is now parsed from and serialized back to `product_catalog.v4.commercial.json`.
 - `KioskCatalogAdapter` preserves the catalog product price.
@@ -1880,9 +1936,11 @@ Validate the merged working kiosk end-to-end, beginning with compiler/test failu
 - Added K17.2 regression coverage for product-price parsing, adapter propagation, pricing resolution, option totals, and negative-price rejection.
 
 ### Static source verification
+
 The bundled commercial catalog was compared against `pricing_menu_source.json`: all 73 supplied regular/food price entries matched, and all 14 configured option prices matched.
 
 ### Local verification required
+
 Run on the development machine:
 
 ```bash
@@ -1912,6 +1970,7 @@ Must not receive an invented price
 ```
 
 ### Architecture checkpoint
+
 ```text
 Product Catalog JSON
        ↓
@@ -1929,7 +1988,7 @@ Customer Order Total
 ```
 
 ### Exact Next Session
+
 **K17.3 — Product / Add-on Rule Finalization.**
 
 Verify and harden category-aware option assignment across drinks, rice meals, burgers, merienda, accessories, and other product types; then add regression coverage ensuring each product receives only its assigned/shared applicable options.
-

@@ -1,4 +1,4 @@
--- Bigger Brew Store Master Catalog Phase 2
+-- MyKiosk Store Master Catalog Phase 2
 -- Database-master catalog writes for kiosk catalog administration.
 -- The kiosk must identify itself with the configured store ID + active device code.
 

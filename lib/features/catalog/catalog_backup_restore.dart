@@ -142,7 +142,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Clipboard does not contain a valid Bigger Brew catalog backup.')));
+                'Clipboard does not contain a valid MyKiosk catalog backup.')));
       }
       return;
     }
@@ -242,7 +242,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
                             widget.role, CatalogPermission.restoreBackup)),
                 _action(
                     'Restore From Clipboard',
-                    'Manager only: restore a Bigger Brew catalog JSON backup.',
+                    'Manager only: restore a MyKiosk catalog JSON backup.',
                     Icons.input,
                     _restoreFromClipboard,
                     enabled: StaffAccessPolicy.can(

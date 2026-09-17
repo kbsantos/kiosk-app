@@ -1,4 +1,4 @@
-/// Read-only payload models used to prepare Bigger Brew kiosk orders for
+/// Read-only payload models used to prepare MyKiosk kiosk orders for
 /// the Supabase `sync_kiosk_transaction` RPC. No local kiosk data is changed.
 class ReportingSyncPayload {
   final String externalTransactionId;

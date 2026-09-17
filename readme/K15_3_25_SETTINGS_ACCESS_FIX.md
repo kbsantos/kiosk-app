@@ -3,7 +3,7 @@
 ## Changes
 
 - Restored the last-known-working hidden staff entry point:
-  - Tap `BIGGER BREW` in the main header 5 times within 4 seconds.
+  - Tap `MyKiosk` in the main header 5 times within 4 seconds.
   - Opens the current `KioskStaffGate` PIN dialog.
   - Default staff PIN remains `1234` on a fresh kiosk.
   - Opens `KioskStaffToolsPage` after successful authentication.
@@ -23,7 +23,7 @@
 ## Verification on the kiosk
 
 1. Launch the app.
-2. Tap `BIGGER BREW` 5 times quickly.
+2. Tap `MyKiosk` 5 times quickly.
 3. Enter the staff PIN.
 4. Open `KIOSK SETTINGS`.
 5. Verify Store Status, Store Identity, Order Mode, Receipt Printer and Staff Access load.

@@ -1,13 +1,16 @@
-# Bigger Brew Kiosk — K24.12.4 Checkpoint
+# MyKiosk Kiosk — K24.12.4 Checkpoint
 
 ## Change
+
 Compact Barista and Kitchen receipt printing across all affected print paths.
 
 ## Scope
+
 - PDF receipt generation in `lib/features/kiosk/pages/kiosk_receipt_printer.dart`
 - Bluetooth ESC/POS receipt generation in `lib/features/kiosk/pages/kiosk_bluetooth_printer.dart`
 
 ## Behavior
+
 - Removes blank feed lines before Barista and Kitchen copies on Bluetooth printing.
 - Removes blank feed lines after Barista and Kitchen copies on Bluetooth printing.
 - Uses content-driven PDF height for production-only copies instead of a fixed 70mm base.
@@ -18,6 +21,7 @@ Compact Barista and Kitchen receipt printing across all affected print paths.
 - Customer receipt content, variants, options/add-ons, settings flags, cash drawer behavior, and printer routing are unchanged.
 
 ## Verification
+
 Flutter SDK is not available in the build environment used for this checkpoint. Run on the development Mac:
 
 ```bash

@@ -1,4 +1,4 @@
-# Bigger Brew Kiosk — Milestone: Store Master Catalog & Kiosk Synchronization
+# MyKiosk Kiosk — Milestone: Store Master Catalog & Kiosk Synchronization
 
 ## Milestone Objective
 
@@ -616,12 +616,12 @@ ADMINISTRATION SYNC
 
 Responsibilities:
 
-| Function | Direction | Purpose |
-|---|---|---|
-| Refresh Product Catalog | DB → Kiosk | Update local catalog from master |
-| Sync Historical Drinks | Kiosk → DB | Historical transaction synchronization |
-| Sync All Transactions | Kiosk → DB | Transaction synchronization |
-| Restore Missing Transactions | DB → Kiosk | Restore missing local transactions |
+| Function                     | Direction  | Purpose                                |
+| ---------------------------- | ---------- | -------------------------------------- |
+| Refresh Product Catalog      | DB → Kiosk | Update local catalog from master       |
+| Sync Historical Drinks       | Kiosk → DB | Historical transaction synchronization |
+| Sync All Transactions        | Kiosk → DB | Transaction synchronization            |
+| Restore Missing Transactions | DB → Kiosk | Restore missing local transactions     |
 
 Catalog refresh remains separate from transaction synchronization.
 

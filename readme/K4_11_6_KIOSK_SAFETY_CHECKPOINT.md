@@ -1,4 +1,4 @@
-# Bigger Brew Kiosk K4.11.6 — Kiosk Safety Checkpoint
+# MyKiosk Kiosk K4.11.6 — Kiosk Safety Checkpoint
 
 ## Result
 

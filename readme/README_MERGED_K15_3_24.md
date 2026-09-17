@@ -1,8 +1,9 @@
-# Bigger Brew Kiosk — K15.3.24 Merge
+# MyKiosk Kiosk — K15.3.24 Merge
 
 The supplied working kiosk project is the base. K15.3 catalog-management updates were merged into it rather than replacing the existing kiosk application.
 
 Merged:
+
 - Catalog Manager Hub
 - Categories / Products / Sizes & Variants / Options
 - Catalog Health
@@ -14,6 +15,7 @@ Merged:
 - Editor / Manager permission model
 
 Preserved from the working project:
+
 - Customer ordering flow
 - Cart / checkout / payments
 - Orders / queue / history

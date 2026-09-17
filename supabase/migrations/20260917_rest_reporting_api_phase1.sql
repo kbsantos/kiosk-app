@@ -1,4 +1,4 @@
--- Bigger Brew REST API Phase 1
+-- MyKiosk REST API Phase 1
 --
 -- Supabase automatically exposes tables/views through PostgREST at /rest/v1/.
 -- This migration adds store-scoped reporting views and enables store-scoped
@@ -176,7 +176,7 @@ using (
   )
 );
 
--- payments varies by deployment. In the current Bigger Brew schema it does
+-- payments varies by deployment. In the current MyKiosk schema it does
 -- not have a store_id column, so it cannot safely receive a direct store-scoped
 -- policy. We therefore enable RLS only when both the relation is a base table
 -- and a store_id column exists. If it lacks store_id, authenticated clients are

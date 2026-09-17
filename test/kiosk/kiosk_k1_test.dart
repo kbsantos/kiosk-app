@@ -7,7 +7,7 @@ import 'package:bigger_brew_kiosk/features/kiosk/data/kiosk_menu_data.dart';
 import 'package:bigger_brew_kiosk/features/kiosk/models/kiosk_models.dart';
 
 void main() {
-  group('Bigger Brew Kiosk clean baseline', () {
+  group('MyKiosk Kiosk clean baseline', () {
     test('contains the core kiosk categories', () {
       expect(KioskCategory.values, contains(KioskCategory.milkTea));
       expect(KioskCategory.values, contains(KioskCategory.riceMeals));
@@ -70,8 +70,8 @@ void main() {
       final file = File(
         'assets/catalog/product_catalog.v4.commercial.json',
       );
-      final catalog = jsonDecode(file.readAsStringSync())
-          as Map<String, dynamic>;
+      final catalog =
+          jsonDecode(file.readAsStringSync()) as Map<String, dynamic>;
       final products = catalog['products'] as List<dynamic>;
       final ids = products
           .map((e) => (e as Map<String, dynamic>)['productId'] as String)

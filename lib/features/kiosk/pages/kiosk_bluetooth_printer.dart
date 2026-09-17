@@ -152,7 +152,7 @@ class KioskBluetoothPrinter {
     }
   }
 
-  /// Prints the existing Bigger Brew order directly as ESC/POS.
+  /// Prints the existing MyKiosk order directly as ESC/POS.
   static Future<bool> printOrder({
     required KioskOrder order,
     required String paperSize,
@@ -188,7 +188,7 @@ class KioskBluetoothPrinter {
 
     if (includeCustomerReceipt) {
       add('\x1BE\x01');
-      line('BIGGER BREW');
+      line('MyKiosk');
       add('\x1BE\x00');
       line('MILKTEA - COFFEE');
       line();
@@ -268,8 +268,7 @@ class KioskBluetoothPrinter {
 
     // Keep the production copy compact, but leave a small trailing feed so
     // the thermal printer advances the paper far enough for a clean tear/cut.
-    final hasProductionCopy =
-        (includeBaristaCopy && baristaItems.isNotEmpty) ||
+    final hasProductionCopy = (includeBaristaCopy && baristaItems.isNotEmpty) ||
         (includeKitchenCopy && kitchenItems.isNotEmpty);
     if (hasProductionCopy) {
       line();
@@ -304,7 +303,7 @@ class KioskBluetoothPrinter {
       '\x1B@',
       '\x1Ba\x01',
       '\x1BE\x01',
-      'BIGGER BREW\n',
+      'MyKiosk\n',
       '\x1BE\x00',
       'PRINTER TEST\n',
       '\x1Ba\x00',

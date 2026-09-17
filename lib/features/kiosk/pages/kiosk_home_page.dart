@@ -27,7 +27,7 @@ class _KioskHomePageState extends State<KioskHomePage> {
   late Future<KioskSettings> _settingsFuture;
 
   // Hidden staff access:
-  // tap BIGGER BREW five times within four seconds.
+  // tap MyKiosk five times within four seconds.
   int _logoTapCount = 0;
   DateTime? _firstLogoTapAt;
 
@@ -249,7 +249,7 @@ class _KioskHomePageState extends State<KioskHomePage> {
               vertical: 10,
             ),
             child: Text(
-              'BIGGER BREW',
+              'MyKiosk',
               style: TextStyle(
                 fontWeight: FontWeight.w900,
                 letterSpacing: 1.5,

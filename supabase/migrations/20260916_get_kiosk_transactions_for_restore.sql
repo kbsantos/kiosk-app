@@ -1,4 +1,4 @@
--- Bigger Brew Kiosk: restore missing reporting transactions
+-- MyKiosk Kiosk: restore missing reporting transactions
 --
 -- Resolves the active device server-side and returns only transactions
 -- belonging to the configured Store ID + Device / Kiosk Code.
