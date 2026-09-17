@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
+import '../../../core/validation/store_id_validator.dart';
 
 import '../pages/kiosk_receipt_printer.dart';
 import '../pages/kiosk_bluetooth_printer.dart';
@@ -116,12 +117,10 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
     final storeId = _storeIdController.text.trim();
     final deviceId = _deviceIdController.text.trim();
 
-    final uuidPattern = RegExp(
-      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-'
-      r'[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
-    );
+    
 
-    if (!uuidPattern.hasMatch(storeId)) {
+    final normalizedStoreId = StoreIdValidator.normalize(storeId);
+    if (!StoreIdValidator.isValid(normalizedStoreId)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Enter a valid Store ID (UUID).'),

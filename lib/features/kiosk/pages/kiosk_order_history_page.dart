@@ -199,14 +199,18 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
   }
 
   Future<void> _openPdfReport(List<KioskOrder> orders) async {
-    final synced = await _syncAllTransactionsBeforeEod();
-    if (!synced || !mounted) return;
+    // VIEW PDF REPORT is a local kiosk report. Do not synchronize or read from
+    // the reporting database here. Reload the selected date directly from the
+    // local kiosk repository so the PDF always reflects the date currently
+    // selected on the EOD page.
+    final localOrders = await _repository.getOrdersForDate(_selectedDate);
+    if (!mounted) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => KioskEodPdfReportPage(
           date: _selectedDate,
-          orders: orders,
+          orders: localOrders,
         ),
       ),
     );
