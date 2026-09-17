@@ -5,7 +5,8 @@
 build/
 .flutter-plugins
 .flutter-plugins-dependencies
-pubspec.lock
+
+# Keep pubspec.lock tracked for Flutter applications
 
 # Android
 .gradle/
@@ -29,6 +30,11 @@ macos/Flutter/ephemeral/
 .idea/
 *.iml
 .vscode/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
 
 # Generated
 *.log
