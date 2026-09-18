@@ -189,7 +189,17 @@ void main() {
       active: true,
     );
     final product = _product(options: [option]);
-    final repository = _FakeCatalogRepository(_catalog(products: [product]));
+    final definition = const CatalogOptionDefinition(
+      optionId: 'takeout',
+      name: 'Takeout',
+      productTypes: ['food'],
+      price: 5,
+      active: true,
+    );
+    final repository = _FakeCatalogRepository(_catalog(
+      definitions: [definition],
+      products: [product],
+    ));
     final master = _FakeMasterService(repository.catalog);
     final controller = ProductOptionManagerController(
       repository: repository,
@@ -311,6 +321,11 @@ void main() {
       controller.deleteDefinition('takeout'),
       throwsA(isA<StateError>()),
     );
-    expect(master.mutationCalls, 0);
+    // mutateCatalog is invoked to obtain the current master snapshot, but
+    // the deletion is rejected inside the mutation before anything is
+    // published. Verify the catalog remains unchanged.
+    expect(master.mutationCalls, 1);
+    expect(master.catalog.optionDefinitions, hasLength(1));
+    expect(master.catalog.optionDefinitions.single.optionId, 'takeout');
   });
 }

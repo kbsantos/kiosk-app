@@ -6,6 +6,20 @@ import '../models/kiosk_models.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
 import 'kiosk_order.dart';
 
+class HistoricalTransactionCategorySyncResult {
+  final int updatedOrders;
+  final int updatedItems;
+  final int skippedItems;
+  final int totalOrders;
+
+  const HistoricalTransactionCategorySyncResult({
+    this.updatedOrders = 0,
+    this.updatedItems = 0,
+    this.skippedItems = 0,
+    this.totalOrders = 0,
+  });
+}
+
 class HistoricalDrinkTemperatureSyncResult {
   final int updatedOrders;
   final int updatedItems;
@@ -137,6 +151,113 @@ class KioskOrderRepository {
     );
   }
 
+  /// Updates local historical transaction item category snapshots to the
+  /// category currently assigned to the matching product in the local catalog.
+  ///
+  /// This is a one-time administrative migration. It changes only the
+  /// transaction item's category/categoryName fields and never changes product
+  /// details, pricing, quantities, options, totals, or transaction metadata.
+  /// Products that no longer exist in the local catalog are left untouched.
+  Future<HistoricalTransactionCategorySyncResult>
+      syncHistoricalTransactionCategories({bool dryRun = false}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawOrders = prefs.getStringList(_ordersKey) ?? const [];
+    if (rawOrders.isEmpty) {
+      return const HistoricalTransactionCategorySyncResult();
+    }
+
+    final catalog = await const ProductCatalogRepository().load();
+    final categoryNameById = <String, String>{
+      for (final category in catalog.categories)
+        category.categoryId: category.name,
+    };
+    final categoryByProductId = <String, String>{
+      for (final product in catalog.products)
+        product.productId: product.categoryId,
+    };
+
+    var updatedItems = 0;
+    var updatedOrders = 0;
+    var skippedItems = 0;
+    final nextRawOrders = <String>[];
+
+    for (final rawOrder in rawOrders) {
+      Map<String, dynamic> orderJson;
+      try {
+        orderJson = Map<String, dynamic>.from(jsonDecode(rawOrder) as Map);
+      } catch (_) {
+        nextRawOrders.add(rawOrder);
+        continue;
+      }
+
+      final status =
+          (orderJson['status'] as String? ?? '').trim().toLowerCase();
+      if (status == KioskOrderStatus.cancelled.value) {
+        nextRawOrders.add(rawOrder);
+        continue;
+      }
+
+      final rawItems = orderJson['items'];
+      var orderChanged = false;
+
+      if (rawItems is List) {
+        final nextItems = <dynamic>[];
+
+        for (final rawItem in rawItems) {
+          if (rawItem is! Map) {
+            nextItems.add(rawItem);
+            continue;
+          }
+
+          final item = Map<String, dynamic>.from(rawItem);
+          final productId = item['productId'] as String? ?? '';
+          final currentCategoryId = categoryByProductId[productId];
+
+          if (currentCategoryId == null) {
+            skippedItems++;
+            nextItems.add(item);
+            continue;
+          }
+
+          final currentCategoryName =
+              categoryNameById[currentCategoryId] ?? currentCategoryId;
+          final storedCategory = item['category'] as String?;
+          final storedCategoryName = item['categoryName'] as String?;
+
+          if (storedCategory != currentCategoryId ||
+              storedCategoryName != currentCategoryName) {
+            item['category'] = currentCategoryId;
+            item['categoryName'] = currentCategoryName;
+            updatedItems++;
+            orderChanged = true;
+          }
+
+          nextItems.add(item);
+        }
+
+        if (orderChanged) {
+          orderJson['items'] = nextItems;
+          updatedOrders++;
+        }
+      }
+
+      nextRawOrders.add(
+        orderChanged ? jsonEncode(orderJson) : rawOrder,
+      );
+    }
+
+    if (!dryRun && updatedItems > 0) {
+      await prefs.setStringList(_ordersKey, nextRawOrders);
+    }
+
+    return HistoricalTransactionCategorySyncResult(
+      updatedOrders: updatedOrders,
+      updatedItems: updatedItems,
+      skippedItems: skippedItems,
+      totalOrders: rawOrders.length,
+    );
+  }
+
   /// Adds restored transactions without overwriting any existing local
   /// transaction with the same external transaction ID.
   ///
@@ -238,6 +359,19 @@ class KioskOrderRepository {
     final now = DateTime.now();
     final orderNumber = await _nextOrderNumber(now);
 
+    // Capture the local Store Master catalog version alongside the immutable
+    // item-level transaction snapshot. If catalog metadata is temporarily
+    // unavailable, do not block checkout; legacy-compatible null is safer
+    // than inventing a version.
+    String? catalogVersion;
+    try {
+      final catalog = await const ProductCatalogRepository().load();
+      final version = catalog.catalogVersion.trim();
+      catalogVersion = version.isEmpty ? null : version;
+    } catch (_) {
+      catalogVersion = null;
+    }
+
     final order = KioskOrder(
       id: '${now.microsecondsSinceEpoch}-$orderNumber',
       orderNumber: orderNumber,
@@ -246,6 +380,7 @@ class KioskOrderRepository {
       paymentMethod: paymentMethod,
       paymentStatus: paymentStatus,
       orderMode: orderMode,
+      catalogVersion: catalogVersion,
       status: status,
       items: checkoutItems,
       total: checkoutTotal,

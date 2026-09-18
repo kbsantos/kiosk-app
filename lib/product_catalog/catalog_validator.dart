@@ -172,11 +172,20 @@ class CatalogValidator {
         if (o.optionId.trim().isEmpty) {
           error('invalid_product_option', 'Product option has invalid ID.',
               p.productId);
-        } else if (catalog.optionDefinition(o.optionId) == null) {
-          warn(
-              'unregistered_product_option',
-              'Product option is not present in shared option definitions.',
-              p.productId);
+        } else {
+          final definition = catalog.optionDefinition(o.optionId);
+          if (definition == null) {
+            error(
+                'missing_product_option_definition',
+                'Product option ${o.optionId} is not present in shared option definitions.',
+                p.productId);
+          } else if (definition.productTypes.isNotEmpty &&
+              !definition.productTypes.contains(p.productType)) {
+            error(
+                'incompatible_product_option_type',
+                'Product option ${o.optionId} is not compatible with product type ${p.productType}.',
+                p.productId);
+          }
         }
       }
     }

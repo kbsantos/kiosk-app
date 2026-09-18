@@ -8,6 +8,8 @@ import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import 'store_catalog_master_service.dart';
 import 'catalog_sync_version_guard.dart';
+import 'catalog_sync_status.dart';
+import 'catalog_local_master_migration.dart';
 
 class StoreCatalogSyncResult {
   const StoreCatalogSyncResult({
@@ -53,6 +55,14 @@ class StoreCatalogSyncService {
   final ProductCatalogRepository _repository;
   final KioskSettingsRepository _settingsRepository;
   final StoreCatalogMasterService _masterService;
+
+  /// Clears the kiosk's remembered master version without changing the local
+  /// catalog. This is used when a device is re-provisioned so it cannot
+  /// publish an old version until it has refreshed from the current master.
+  Future<void> clearLocalMasterVersion() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_versionKey);
+  }
 
   Future<String?> localMasterVersion() async {
     final prefs = await SharedPreferences.getInstance();
@@ -219,12 +229,29 @@ class StoreCatalogSyncService {
       source: 'local kiosk catalog',
     );
     ProductCatalogRepository.validate(catalog);
+    CatalogLocalMasterMigration.ensureHasProducts(catalog);
 
     final masterVersion = await getMasterVersion();
     final localVersion = CatalogSyncVersionGuard.ensureLocalMatchesMaster(
       localVersion: await localMasterVersion(),
       masterVersion: masterVersion,
     );
+
+    // A matching synchronization version does not prove the local catalog is
+    // identical: an explicit local edit can retain the last accepted version.
+    // Avoid an unnecessary master write only when the complete catalog data is
+    // actually identical.
+    final master = await _masterService.loadMasterCatalog();
+    if (CatalogLocalMasterMigration.catalogsMatch(catalog, master)) {
+      await _reportSuccessfulSync(settings, localVersion);
+      return StoreCatalogSyncResult(
+        catalogVersion: master.catalogVersion,
+        categoryCount: master.categories.length,
+        productCount: master.products.length,
+        optionDefinitionCount: master.optionDefinitions.length,
+        updated: false,
+      );
+    }
 
     final accepted = await _masterService.publishCatalog(
       catalog,
@@ -241,6 +268,49 @@ class StoreCatalogSyncService {
     );
   }
 
+  Future<CatalogSyncStatusSnapshot> loadCatalogSyncStatus() async {
+    final localVersion = await localMasterVersion();
+
+    try {
+      final settings = await _settingsRepository.load();
+      _validateSettings(settings);
+
+      final masterVersion = await getMasterVersion(allowMissing: true);
+      if (masterVersion == null) {
+        return CatalogSyncStatusResolver.resolve(
+          masterAvailable: true,
+          masterExists: false,
+          localVersion: localVersion,
+          masterVersion: null,
+          catalogsMatch: false,
+        );
+      }
+
+      final master = await _masterService.loadMasterCatalog();
+      final local = await _repository.load();
+      final catalogsMatch = CatalogLocalMasterMigration.catalogsMatch(
+        local,
+        master,
+      );
+
+      return CatalogSyncStatusResolver.resolve(
+        masterAvailable: true,
+        masterExists: true,
+        localVersion: localVersion,
+        masterVersion: masterVersion,
+        catalogsMatch: catalogsMatch,
+      );
+    } catch (_) {
+      return CatalogSyncStatusResolver.resolve(
+        masterAvailable: false,
+        masterExists: false,
+        localVersion: localVersion,
+        masterVersion: null,
+        catalogsMatch: false,
+      );
+    }
+  }
+
   Future<bool> masterCatalogExists() async {
     return (await getMasterVersion(allowMissing: true)) != null;
   }
@@ -253,6 +323,7 @@ class StoreCatalogSyncService {
     _validateSettings(settings);
     final catalog = await _repository.load();
     ProductCatalogRepository.validate(catalog);
+    CatalogLocalMasterMigration.ensureHasProducts(catalog);
 
     final result = await Supabase.instance.client.rpc(
       'initialize_store_catalog_from_kiosk',

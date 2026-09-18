@@ -158,9 +158,10 @@ void main() {
   });
 
   test('category assignment rejects a missing product from the current master catalog', () async {
+    final localProduct = _product();
     final repository = _FakeCatalogRepository(_catalog(
       categories: [_category('coffee', 'Coffee')],
-      products: [_product()],
+      products: [localProduct],
     ));
     final master = _FakeMasterService(_catalog(
       categories: [_category('coffee', 'Coffee')],
@@ -172,10 +173,14 @@ void main() {
     );
     await controller.load();
 
+    // The current master has no products, so the controller's loaded list is
+    // intentionally empty. Use the local product object as the stale UI
+    // request to verify that the master rejects the missing product.
     await expectLater(
-      controller.assignProduct(controller.products.single, 'coffee'),
+      controller.assignProduct(localProduct, 'coffee'),
       throwsA(isA<StateError>()),
     );
+    expect(master.mutationCalls, 1);
     expect(repository.saveProductsCalled, isFalse);
   });
 }

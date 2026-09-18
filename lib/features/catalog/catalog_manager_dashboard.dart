@@ -11,7 +11,10 @@ import 'catalog_audit_history.dart';
 import 'category_manager.dart';
 import 'product_manager.dart';
 import 'store_catalog_sync_service.dart';
+import 'store_catalog_master_service.dart';
 import 'catalog_store_master_gateway.dart';
+import 'historical_catalog_recovery.dart';
+import '../kiosk/orders/kiosk_order_repository.dart';
 
 class CatalogManagerDashboardPage extends StatefulWidget {
   const CatalogManagerDashboardPage({super.key});
@@ -25,6 +28,8 @@ class _CatalogManagerDashboardPageState
     extends State<CatalogManagerDashboardPage> {
   final _repository = const ProductCatalogRepository();
   final _catalogSyncService = StoreCatalogSyncService();
+  final _masterService = StoreCatalogMasterService();
+  final _orderRepository = KioskOrderRepository();
   late final _storeMasterGateway = CatalogStoreMasterGateway(_catalogSyncService);
   ProductCatalog? _catalog;
   CatalogValidationReport? _report;
@@ -50,6 +55,115 @@ class _CatalogManagerDashboardPageState
       });
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _recoverHistoricalCatalog() async {
+    try {
+      final master = await _masterService.loadMasterCatalog();
+      final orders = await _orderRepository.getOrders();
+      final result = HistoricalCatalogRecovery.recover(master, orders);
+
+      if (!mounted) return;
+      if (!result.hasChanges) {
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('HISTORICAL RECOVERY'),
+            content: Text(
+              result.conflicts.isEmpty
+                  ? 'No missing variants or product options were found in local transaction history.'
+                  : 'No safe automatic changes were found. ${result.conflicts.length} historical conflict(s) require manual review.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CLOSE'),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('RECOVER HISTORICAL CATALOG DATA?'),
+          content: SingleChildScrollView(
+            child: Text(
+              'The current Store Master catalog will be extended using local transaction snapshots.\n\n'
+              'Variants to recover: ${result.recoveredVariants}\n'
+              'Shared option definitions: ${result.recoveredOptionDefinitions}\n'
+              'Product option assignments: ${result.recoveredProductOptions}\n'
+              'Conflicts requiring manual review: ${result.conflicts.length}\n\n'
+              'Only products that still exist in the current catalog are considered. Existing catalog records are not overwritten.',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('RECOVER & PUBLISH'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !mounted) return;
+
+      await _repository.saveImportRecoveryBackup(master);
+      await _repository.saveBackup(master);
+      try {
+        final published = await _masterService.publishCatalog(
+          result.catalog,
+          expectedVersion: master.catalogVersion,
+          auditAction: 'Recover catalog from historical transactions',
+        );
+        if (!mounted) return;
+        setState(() {
+          _catalog = published;
+          _report = CatalogValidator().validate(published);
+        });
+        await showDialog<void>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('RECOVERY COMPLETE'),
+            content: Text(
+              'Published catalog version ${published.catalogVersion}.\n\n'
+              'Recovered ${result.recoveredVariants} variant(s), ${result.recoveredOptionDefinitions} shared option definition(s), and ${result.recoveredProductOptions} product option assignment(s).\n\n'
+              '${result.conflicts.length} conflict(s) were left unchanged for manual review.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('CLOSE'),
+              ),
+            ],
+          ),
+        );
+      } catch (_) {
+        await _repository.clearImportRecoveryBackup();
+        rethrow;
+      }
+    } catch (error) {
+      if (!mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('HISTORICAL RECOVERY FAILED'),
+          content: Text(error.toString()),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('CLOSE'),
+            ),
+          ],
+        ),
+      );
     }
   }
 
@@ -145,6 +259,13 @@ class _CatalogManagerDashboardPageState
                 () => _open(const CatalogAuditHistoryPage(
                   role: StaffRole.editor,
                 )),
+              ),
+              _tile(
+                Icons.restore_page_outlined,
+                'Historical Recovery',
+                'Recover missing variants and options from local transactions',
+                'LOCAL TRANSACTIONS',
+                _recoverHistoricalCatalog,
               ),
             ]),
             const SizedBox(height: 24),

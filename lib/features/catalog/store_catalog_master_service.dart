@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../../product_catalog/catalog_schema_guard.dart';
 import 'catalog_sync_version_guard.dart';
+import 'catalog_publish_recovery.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import '../kiosk/settings/kiosk_settings_repository.dart';
@@ -98,17 +99,45 @@ class StoreCatalogMasterService {
       );
     }
 
-    final result = await client.rpc(
-      _publishRpc,
-      params: {
-        'p_store_id': settings.storeId.trim(),
-        'p_device_code': settings.deviceId.trim(),
-        'p_expected_version': expectedVersion?.trim() ?? currentVersion,
-        'p_catalog': catalog.toJson(),
-      },
-    );
+    dynamic result;
+    try {
+      result = await client.rpc(
+        _publishRpc,
+        params: {
+          'p_store_id': settings.storeId.trim(),
+          'p_device_code': settings.deviceId.trim(),
+          'p_expected_version': expectedVersion?.trim() ?? currentVersion,
+          'p_catalog': catalog.toJson(),
+        },
+      );
+    } catch (error, stackTrace) {
+      // The RPC may have committed the catalog but the response can still be
+      // lost due to a network interruption. Re-read the master and adopt it
+      // only when its complete catalog content is identical to what this
+      // kiosk attempted to publish. A different master remains a genuine
+      // conflict and the original error is preserved.
+      try {
+        final master = await loadMasterCatalog();
+        if (CatalogPublishRecovery.canAdoptMaster(catalog, master)) {
+          await _repository.saveCatalog(
+            master,
+            auditAction: auditAction,
+          );
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString(_versionKey, master.catalogVersion);
+          return master;
+        }
+      } catch (_) {
+        // Preserve the original publish error when reconciliation cannot be
+        // completed (for example, because the kiosk is still offline).
+      }
+      Error.throwWithStackTrace(error, stackTrace);
+    }
+
     final newVersion = result?.toString().trim() ?? '';
     if (newVersion.isEmpty) {
+      // A successful RPC without a version is not safe to reconcile because
+      // we do not know which master version was accepted.
       throw StateError('The database did not return the new catalog version.');
     }
 

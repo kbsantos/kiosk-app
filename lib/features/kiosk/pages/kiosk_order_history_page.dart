@@ -8,6 +8,7 @@ import 'kiosk_eod_pdf_report_page.dart';
 import 'kiosk_eod_email_service.dart';
 import '../settings/kiosk_settings_repository.dart';
 import '../../reporting_sync/reporting_sync_service.dart';
+import '../reporting/eod_reporting_policy.dart';
 
 class KioskOrderHistoryPage extends StatefulWidget {
   const KioskOrderHistoryPage({super.key});
@@ -135,7 +136,7 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
     });
   }
 
-  Future<bool> _syncAllTransactionsBeforeEod() async {
+  Future<bool> _syncReportingData() async {
     try {
       final result = await _reportingSyncService.syncAllTransactions();
 
@@ -149,7 +150,7 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
             content: SingleChildScrollView(
               child: SelectableText(
                 '${result.summary}\n\n'
-                'EOD reports are blocked until every transaction syncs successfully.'
+                'Reporting synchronization was not completed. Local EOD reports remain available.'
                 '${result.failures.isEmpty ? '' : '\n\n${result.failures.map((failure) => '${failure.orderNumber} (${failure.externalTransactionId}):\\n${failure.message}').join('\\n\\n')}'}',
               ),
             ),
@@ -183,7 +184,7 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
           title: const Text('EOD REPORTING SYNC FAILED'),
           content: SingleChildScrollView(
             child: SelectableText(
-              'All transactions must sync successfully before EOD reports can be generated.\n\n$error',
+              'Reporting synchronization failed. Local EOD reports remain available.\n\n$error',
             ),
           ),
           actions: [
@@ -199,6 +200,8 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
   }
 
   Future<void> _openPdfReport(List<KioskOrder> orders) async {
+    assert(EodReportingPolicy.canGenerateLocalPdf);
+    assert(!EodReportingPolicy.requiresSuccessfulSyncForPdf);
     // VIEW PDF REPORT is a local kiosk report. Do not synchronize or read from
     // the reporting database here. Reload the selected date directly from the
     // local kiosk repository so the PDF always reflects the date currently
@@ -218,6 +221,8 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
 
 
     Future<void> _emailEodReport(List<KioskOrder> orders) async {
+    assert(EodReportingPolicy.canEmailLocalPdf);
+    assert(!EodReportingPolicy.requiresSuccessfulSyncForEmail);
     final settings = await _settingsRepository.load();
     if (!settings.emailEnabled) {
       if (!mounted) return;
@@ -230,12 +235,9 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
       return;
     }
 
-    final synced = await _syncAllTransactionsBeforeEod();
-    if (!synced || !mounted) return;
-    if (!mounted) return;
-
     final recipient = settings.eodReportEmail;
     if (recipient == null || recipient.trim().isEmpty) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Configure the EOD report email in Kiosk Settings first.'),
@@ -245,6 +247,7 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
       return;
     }
 
+    if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
     messenger.showSnackBar(
       const SnackBar(
@@ -645,6 +648,7 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
                 refunds: refunds,
                 onExport: () => _openPdfReport(allOrders),
                 onEmail: () => _emailEodReport(allOrders),
+                onSync: _syncReportingData,
                 emailEnabled: _emailEnabled,
                  emailConfigured: _emailConfigured,
               ),
@@ -742,6 +746,7 @@ class _SummaryHeader extends StatelessWidget {
   final int refunds;
   final VoidCallback onExport;
   final VoidCallback onEmail;
+  final VoidCallback onSync;
   final bool emailEnabled;
   final bool emailConfigured;
 
@@ -754,6 +759,7 @@ class _SummaryHeader extends StatelessWidget {
     required this.refunds,
     required this.onExport,
     required this.onEmail,
+    required this.onSync,
     required this.emailEnabled,
     required this.emailConfigured,
   });
@@ -792,6 +798,11 @@ class _SummaryHeader extends StatelessWidget {
                 spacing: 10,
                 runSpacing: 10,
                 children: [
+                  OutlinedButton.icon(
+                    onPressed: onSync,
+                    icon: const Icon(Icons.cloud_upload_outlined),
+                    label: const Text('SYNC TO REPORTING'),
+                  ),
                   FilledButton.icon(
                     onPressed: onExport,
                     icon: const Icon(Icons.picture_as_pdf_outlined),

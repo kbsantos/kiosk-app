@@ -8,6 +8,8 @@ import 'reporting_sync_status.dart';
 import 'reporting_sync_status_store.dart';
 import 'reporting_transaction_mapper.dart';
 import 'reporting_restore_mapper.dart';
+import 'reporting_sync_audit.dart';
+import 'reporting_sync_operational_status.dart';
 import '../kiosk/settings/kiosk_settings_repository.dart';
 
 /// Manual, reporting-only synchronization service.
@@ -72,7 +74,8 @@ class ReportingSyncService {
   })  : _orderRepository = orderRepository ?? KioskOrderRepository(),
         _mapper = mapper ?? const ReportingTransactionMapper(),
         _statusStore = statusStore ?? ReportingSyncStatusStore(),
-        _settingsRepository = settingsRepository ?? KioskSettingsRepository();
+        _settingsRepository = settingsRepository ?? KioskSettingsRepository(),
+        _auditStore = ReportingSyncAuditStore();
 
   static const _rpcName = 'sync_kiosk_transaction';
 
@@ -80,6 +83,7 @@ class ReportingSyncService {
   final ReportingTransactionMapper _mapper;
   final ReportingSyncStatusStore _statusStore;
   final KioskSettingsRepository _settingsRepository;
+  final ReportingSyncAuditStore _auditStore;
 
   /// Syncs orders created on the kiosk's local calendar date.
   Future<ReportingSyncResult> syncToday({
@@ -215,6 +219,20 @@ class ReportingSyncService {
     return _statusStore.getProgress(orders);
   }
 
+  /// Returns the combined local reporting sync status and latest audit entry.
+  Future<ReportingSyncOperationalStatus> getOperationalStatus() async {
+    final orders = await _orderRepository.getOrders();
+    final progress = await _statusStore.getProgress(orders);
+    final latestAudit = await _auditStore.latest();
+    return ReportingSyncOperationalStatus.from(
+      progress: progress,
+      latestAudit: latestAudit,
+    );
+  }
+
+  /// Returns the local audit history for the explicit reporting sync action.
+  Future<List<ReportingSyncAudit>> getAuditHistory() => _auditStore.history();
+
   Future<ReportingSyncResult> _syncPendingOrders(
     List<KioskOrder> orders, {
     required bool includeAlreadySynced,
@@ -234,6 +252,7 @@ class ReportingSyncService {
     final settings = await _settingsRepository.load();
     _validateConfiguration(settings);
 
+    final startedAt = DateTime.now();
     var succeeded = 0;
     final failures = <ReportingSyncFailure>[];
 
@@ -271,11 +290,77 @@ class ReportingSyncService {
       }
     }
 
-    return ReportingSyncResult(
+    final result = ReportingSyncResult(
       attempted: orders.length,
       succeeded: succeeded,
       failures: List.unmodifiable(failures),
     );
+
+    await _recordAudit(
+      startedAt: startedAt,
+      result: result,
+      settings: settings,
+    );
+
+    return result;
+  }
+
+  Future<void> _recordAudit({
+    required DateTime startedAt,
+    required ReportingSyncResult result,
+    required KioskSettings settings,
+  }) async {
+    final completedAt = DateTime.now();
+    final audit = ReportingSyncAudit(
+      id: 'sync-${completedAt.toUtc().microsecondsSinceEpoch}',
+      startedAt: startedAt,
+      completedAt: completedAt,
+      attempted: result.attempted,
+      succeeded: result.succeeded,
+      failed: result.failed,
+      failures: result.failures
+          .map(
+            (failure) => ReportingSyncAuditFailure(
+              externalTransactionId: failure.externalTransactionId,
+              message: failure.message,
+            ),
+          )
+          .toList(growable: false),
+    );
+
+    try {
+      await _auditStore.record(audit);
+    } catch (_) {
+      // Audit metadata must never turn a completed reporting sync into a
+      // failure. The transaction RPC result remains authoritative.
+    }
+
+    try {
+      await Supabase.instance.client.rpc(
+        'record_kiosk_reporting_sync_log',
+        params: {
+          'p_store_id': settings.storeId.trim(),
+          'p_device_code': settings.deviceId.trim(),
+          'p_started_at': startedAt.toUtc().toIso8601String(),
+          'p_completed_at': completedAt.toUtc().toIso8601String(),
+          'p_attempted': result.attempted,
+          'p_succeeded': result.succeeded,
+          'p_failed': result.failed,
+          'p_failures': result.failures
+              .map(
+                (failure) => {
+                  'externalTransactionId': failure.externalTransactionId,
+                  'orderNumber': failure.orderNumber,
+                  'message': failure.message,
+                },
+              )
+              .toList(growable: false),
+        },
+      );
+    } catch (_) {
+      // Server-side audit is best effort. Never hide or reverse the actual
+      // transaction synchronization result because an audit write failed.
+    }
   }
 
   Future<String> _resolveDeviceUuid({

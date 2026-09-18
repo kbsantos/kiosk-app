@@ -1,6 +1,7 @@
 import '../../../product_catalog/kiosk_catalog_adapter.dart';
 import '../../catalog/store_catalog_sync_service.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
+import '../../../product_catalog/product_catalog_models.dart';
 import '../models/kiosk_models.dart';
 
 /// Kiosk-side catalog loader.
@@ -15,6 +16,49 @@ class KioskCatalogData {
   static const _repository = ProductCatalogRepository();
   static const _adapter = KioskCatalogAdapter();
   static final _storeCatalogSync = StoreCatalogSyncService();
+
+  /// Returns only active, priced options explicitly assigned to [product].
+  /// Shared option definitions are intentionally not inherited by product
+  /// type; assignment is the gate that makes an option customer-selectable.
+  static List<KioskCatalogOption> optionsForProduct(
+    ProductCatalog catalog,
+    KioskCatalogProduct product,
+  ) {
+    // The product assignment itself is the source of truth for whether an
+    // add-on is exposed. Shared definitions are not inherited implicitly.
+    // Keep only assignments whose definitions still exist and are active in
+    // the current Store Master catalog.
+    final definitionsById = {
+      for (final definition in catalog.optionDefinitions)
+        definition.optionId: definition,
+    };
+
+    return product.options
+        .where((option) {
+          final definition = definitionsById[option.optionId];
+          final normalizedProductType =
+              product.productType.trim().toLowerCase();
+          final compatibleType = definition == null ||
+              definition.productTypes.isEmpty ||
+              definition.productTypes.any(
+                (type) => type.trim().toLowerCase() == normalizedProductType,
+              );
+          return option.active &&
+              option.price != null &&
+              definition != null &&
+              definition.active &&
+              compatibleType;
+        })
+        .map(
+          (option) => KioskCatalogOption(
+            id: option.optionId,
+            name: option.name,
+            price: option.price!.toInt(),
+            kitchenPrepared: option.kitchenPrepared,
+          ),
+        )
+        .toList(growable: false);
+  }
 
   static Future<Map<KioskCategory, List<KioskProduct>>> load() async {
     // Automatically pull a newer store-master catalog when available. Any
@@ -41,42 +85,11 @@ class KioskCatalogData {
       final products = <KioskProduct>[];
 
       for (final product in kioskProducts) {
-        // Product-specific assignments take precedence. When none are
-        // assigned, fall back to the active shared option definitions that
-        // match the product type (for example, shared `drink` add-ons).
-        final productOptions = product.options.where((option) => option.active).toList(growable: false);
-        final sharedOptions = catalog.optionDefinitions
-            .where((option) =>
-                option.active &&
-                option.productTypes.any(
-                  (type) => type.trim().toLowerCase() ==
-                      product.productType.trim().toLowerCase(),
-                ))
-            .toList(growable: false);
-
-        // Never invent a zero selling price for an option. Only options
-        // with an explicit catalog price are customer-selectable.
-        final effectiveOptions = productOptions.isNotEmpty
-            ? productOptions
-                .where((option) => option.price != null)
-                .map(
-                  (option) => KioskCatalogOption(
-                    id: option.optionId,
-                    name: option.name,
-                    price: option.price!.toInt(),
-                    kitchenPrepared: option.kitchenPrepared,
-                  ),
-                )
-            : sharedOptions
-                .where((option) => option.price != null)
-                .map(
-                  (option) => KioskCatalogOption(
-                    id: option.optionId,
-                    name: option.name,
-                    price: option.price!.toInt(),
-                    kitchenPrepared: option.kitchenPrepared,
-                  ),
-                );
+        // Customer-facing add-ons are strictly product-specific. A shared
+        // option definition is only a reusable definition in Catalog
+        // Management; it must not appear at checkout until it is explicitly
+        // assigned to this product.
+        final effectiveOptions = optionsForProduct(catalog, product);
 
         products.add(
           KioskProduct(

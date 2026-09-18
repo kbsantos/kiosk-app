@@ -55,10 +55,15 @@ to receive `p_device_id` as the required UUID.
 
 ### EOD behavior
 
-The EOD page does not expose a second transaction-sync implementation or
-button. VIEW PDF REPORT and EMAIL PDF automatically run the shared
-`ReportingSyncService.syncAllTransactions()` prerequisite first. If any
-transaction fails to sync, the EOD action is blocked.
+The EOD page is local-first. VIEW PDF REPORT reloads the selected date from the
+local kiosk repository and does not read from or synchronize the reporting
+database. EMAIL PDF also generates its attachment from the same local order
+snapshot and does not require cloud synchronization.
+
+Cloud reporting synchronization is an explicit separate `SYNC TO REPORTING`
+action on the EOD page. It uses the existing idempotent
+`ReportingSyncService.syncAllTransactions()` flow. A sync failure does not
+block local PDF generation or email preparation.
 
 
 ### EOD email setting
@@ -89,3 +94,15 @@ locally. Existing local transactions are never overwritten or deleted.
 Restore normalizes nullable reporting fields to safe kiosk defaults and
 reconstructs size/variant/option snapshots from the reporting rows. The
 reporting `external_transaction_id` is used as the local kiosk transaction ID.
+
+## K29 — Reporting sync reliability and audit
+
+Explicit reporting sync attempts now retain a bounded local audit trail. The
+existing snapshot acknowledgement remains authoritative: only successful RPC
+acknowledgements are marked synced, while failures remain pending for retry.
+Partial and repeated syncs are safe because the reporting RPC is idempotent.
+
+A dedicated Supabase `reporting_sync_logs` table and
+`record_kiosk_reporting_sync_log` RPC provide server-side batch audit metadata.
+Audit writes are best effort and never override the actual transaction sync
+result.

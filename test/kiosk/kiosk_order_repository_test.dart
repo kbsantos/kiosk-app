@@ -5,6 +5,36 @@ import 'package:bigger_brew_kiosk/features/kiosk/models/kiosk_models.dart';
 import 'package:bigger_brew_kiosk/features/kiosk/orders/kiosk_order.dart';
 
 void main() {
+  test('order snapshot preserves a custom transaction category', () {
+    final customCategory = KioskCategory.fromCatalog(
+      id: 'custom_drinks',
+      title: 'Custom Drinks',
+      icon: '⭐',
+    );
+    final product = KioskProduct(
+      id: 'custom_product',
+      name: 'Custom Drink',
+      price: 100,
+      category: customCategory,
+    );
+    final item = KioskCartItem(product: product);
+    final order = KioskOrder(
+      id: 'custom-category-order',
+      orderNumber: 'BB-CAT-001',
+      createdAt: DateTime(2026, 9, 18, 10),
+      orderType: 'Take Out',
+      paymentMethod: 'Cash',
+      status: KioskOrderStatus.completed,
+      items: [item],
+      total: 100,
+    );
+
+    final restored = KioskOrder.fromJson(order.toJson());
+
+    expect(restored.items.single.product.category.id, 'custom_drinks');
+    expect(restored.items.single.product.category.title, 'Custom Drinks');
+  });
+
   test('order snapshot preserves size, options, and total', () {
     const product = KioskProduct(
       id: 'iced_americano',
@@ -148,6 +178,21 @@ void main() {
     expect(thrice.items.single.product.price, 85);
   });
 
+  test('legacy order without catalog version remains readable', () {
+    final restored = KioskOrder.fromJson({
+      'id': 'legacy-catalog-version',
+      'orderNumber': 'BB-LEGACY-001',
+      'createdAt': '2026-09-17T10:00:00.000Z',
+      'orderType': 'Take Out',
+      'paymentMethod': 'Cash',
+      'status': 'completed',
+      'total': 0,
+      'items': [],
+    });
+
+    expect(restored.catalogVersion, isNull);
+  });
+
   test('legacy snapshot derives base price once instead of re-adding options', () {
     final legacy = KioskOrder.fromJson({
       'id': 'legacy-pricing',
@@ -181,6 +226,25 @@ void main() {
     expect(legacy.items.single.product.price, 85);
     expect(legacy.items.single.unitPrice, 105);
     expect(legacy.items.single.total, 105);
+  });
+
+  test('order snapshot preserves catalog version', () {
+    final order = KioskOrder(
+      id: 'catalog-version-order',
+      orderNumber: 'BB-CV-001',
+      createdAt: DateTime(2026, 9, 19, 10),
+      orderType: 'Take Out',
+      paymentMethod: 'Cash',
+      status: KioskOrderStatus.completed,
+      catalogVersion: 'db-202609191000000000',
+      items: [],
+      total: 0,
+    );
+
+    final restored = KioskOrder.fromJson(order.toJson());
+
+    expect(order.toJson()['catalogVersion'], 'db-202609191000000000');
+    expect(restored.catalogVersion, 'db-202609191000000000');
   });
 
 }

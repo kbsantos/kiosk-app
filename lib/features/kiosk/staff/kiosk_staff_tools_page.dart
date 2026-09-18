@@ -6,6 +6,10 @@ import '../pages/kiosk_order_queue_page.dart';
 import '../settings/kiosk_settings_page.dart';
 import 'kiosk_staff_gate.dart';
 import '../administration/kiosk_administration_sync_page.dart';
+import '../../store_management/store_administration_page.dart';
+import '../../inventory/inventory_stock_page.dart';
+import '../pages/kiosk_sales_dashboard_page.dart';
+import '../staff_access.dart';
 
 class KioskStaffToolsPage extends StatelessWidget {
   const KioskStaffToolsPage({super.key});
@@ -184,6 +188,36 @@ class KioskStaffToolsPage extends StatelessWidget {
           title: 'KIOSK SETTINGS',
           subtitle: 'Store status, employee mode, printer and staff PIN.',
           onTap: () => _openPage(context, const KioskSettingsPage()),
+        ),
+        _StaffActionData(
+          icon: Icons.analytics_outlined,
+          title: 'SALES DASHBOARD',
+          subtitle: 'Analyze local kiosk sales by date, product, category and payment.',
+          onTap: () async {
+            final role = await requestStaffRole(context);
+            if (!context.mounted || role != StaffRole.manager) return;
+            await _openPage(context, const KioskSalesDashboardPage());
+          },
+        ),
+        _StaffActionData(
+          icon: Icons.inventory_2_outlined,
+          title: 'INVENTORY STOCK',
+          subtitle: 'View local stock configuration and low-stock indicators.',
+          onTap: () async {
+            final role = await requestStaffRole(context);
+            if (!context.mounted || role != StaffRole.manager) return;
+            await _openPage(context, const InventoryStockPage());
+          },
+        ),
+        _StaffActionData(
+          icon: Icons.store_mall_directory_outlined,
+          title: 'STORE ADMINISTRATION',
+          subtitle: 'Manager-only store records and active status.',
+          onTap: () async {
+            final role = await requestStaffRole(context);
+            if (!context.mounted || role != StaffRole.manager) return;
+            await _openPage(context, const StoreAdministrationPage());
+          },
         ),
       ];
 
