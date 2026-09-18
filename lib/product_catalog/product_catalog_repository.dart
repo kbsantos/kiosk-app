@@ -17,10 +17,7 @@ class ProductCatalogRepository {
   const ProductCatalogRepository();
 
   Future<ProductCatalog> load() async {
-    final raw = await rootBundle.loadString(assetPath);
-    final json = jsonDecode(raw) as Map<String, dynamic>;
-    final catalog = CatalogSchemaGuard.decodeAndValidate(json, source: 'bundled catalog');
-
+    final catalog = await loadBundledCatalog();
     final prefs = await SharedPreferences.getInstance();
     final categoryOverride = prefs.getString(_categoriesOverrideKey);
     final productOverride = prefs.getString(_productsOverrideKey);
@@ -54,6 +51,13 @@ class ProductCatalogRepository {
     return result;
   }
 
+  /// Loads only the immutable bundled commercial catalog, without applying
+  /// any local SharedPreferences overrides.
+  Future<ProductCatalog> loadBundledCatalog() async {
+    final raw = await rootBundle.loadString(assetPath);
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    return CatalogSchemaGuard.decodeAndValidate(json, source: 'bundled catalog');
+  }
 
   Future<void> save(ProductCatalog catalog) => saveCatalog(catalog, auditAction: 'Save catalog');
 

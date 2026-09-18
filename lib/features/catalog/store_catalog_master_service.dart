@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../core/config/supabase_config.dart';
 import '../../product_catalog/catalog_schema_guard.dart';
+import 'catalog_sync_version_guard.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import '../kiosk/settings/kiosk_settings_repository.dart';
@@ -68,6 +69,7 @@ class StoreCatalogMasterService {
   Future<ProductCatalog> publishCatalog(
     ProductCatalog catalog, {
     String auditAction = 'Publish catalog to store master',
+    String? expectedVersion,
   }) async {
     final settings = await _settingsRepository.load();
     _validateSettings(settings);
@@ -89,12 +91,19 @@ class StoreCatalogMasterService {
       );
     }
 
+    if (expectedVersion != null) {
+      CatalogSyncVersionGuard.ensureLocalMatchesMaster(
+        localVersion: expectedVersion,
+        masterVersion: currentVersion,
+      );
+    }
+
     final result = await client.rpc(
       _publishRpc,
       params: {
         'p_store_id': settings.storeId.trim(),
         'p_device_code': settings.deviceId.trim(),
-        'p_expected_version': currentVersion,
+        'p_expected_version': expectedVersion?.trim() ?? currentVersion,
         'p_catalog': catalog.toJson(),
       },
     );
@@ -113,6 +122,28 @@ class StoreCatalogMasterService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_versionKey, newVersion);
     return accepted;
+  }
+
+  /// Applies one catalog mutation to the current Store Master snapshot and
+  /// publishes the resulting complete catalog. The accepted catalog is also
+  /// written to the kiosk's local operational cache by [publishCatalog].
+  Future<ProductCatalog> mutateCatalog(
+    ProductCatalog Function(ProductCatalog catalog) mutation, {
+    String auditAction = 'Update store master catalog',
+  }) async {
+    final master = await loadMasterCatalog();
+    final updated = mutation(master);
+    CatalogSchemaGuard.ensureSupported(
+      updated.schemaVersion,
+      source: 'catalog',
+    );
+    ProductCatalogRepository.validate(updated);
+
+    return publishCatalog(
+      updated,
+      expectedVersion: master.catalogVersion,
+      auditAction: auditAction,
+    );
   }
 
   Future<ProductCatalog> refreshLocalFromMaster() async {

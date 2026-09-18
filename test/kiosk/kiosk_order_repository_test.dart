@@ -105,4 +105,82 @@ void main() {
     expect(restored.items.single.total, 79);
   });
 
+  test('order snapshot keeps base price separate from option prices', () {
+    const product = KioskProduct(
+      id: 'liempo',
+      name: 'Liempo',
+      price: 85,
+      category: KioskCategory.riceMeals,
+      productType: 'food',
+    );
+    const option = KioskOption(
+      id: 'one_rice',
+      name: 'One Rice',
+      price: 20,
+    );
+
+    final item = KioskCartItem(
+      product: product,
+      options: const [option],
+    );
+    final order = KioskOrder(
+      id: 'pricing-roundtrip',
+      orderNumber: 'BB-PR-001',
+      createdAt: DateTime(2026, 9, 18, 10),
+      orderType: 'Take Out',
+      paymentMethod: 'Cash',
+      status: KioskOrderStatus.completed,
+      items: [item],
+      total: 105,
+    );
+
+    final encoded = order.toJson();
+    expect(encoded['items'].single['basePrice'], 85);
+    expect(encoded['items'].single['unitPrice'], 105);
+
+    final once = KioskOrder.fromJson(encoded);
+    final twice = KioskOrder.fromJson(once.toJson());
+    final thrice = KioskOrder.fromJson(twice.toJson());
+
+    expect(once.items.single.unitPrice, 105);
+    expect(twice.items.single.unitPrice, 105);
+    expect(thrice.items.single.unitPrice, 105);
+    expect(thrice.items.single.product.price, 85);
+  });
+
+  test('legacy snapshot derives base price once instead of re-adding options', () {
+    final legacy = KioskOrder.fromJson({
+      'id': 'legacy-pricing',
+      'orderNumber': 'BB-PR-LEGACY',
+      'createdAt': '2026-09-17T10:00:00.000Z',
+      'orderType': 'Take Out',
+      'paymentMethod': 'Cash',
+      'status': 'completed',
+      'total': 105,
+      'items': [
+        {
+          'productId': 'liempo',
+          'productName': 'Liempo',
+          'productType': 'food',
+          'category': 'rice_meals',
+          'quantity': 1,
+          'unitPrice': 105,
+          'total': 105,
+          'options': [
+            {
+              'id': 'one_rice',
+              'name': 'One Rice',
+              'price': 20,
+              'kitchenPrepared': true,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(legacy.items.single.product.price, 85);
+    expect(legacy.items.single.unitPrice, 105);
+    expect(legacy.items.single.total, 105);
+  });
+
 }

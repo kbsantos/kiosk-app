@@ -10,7 +10,8 @@ import 'catalog_backup_restore.dart';
 import 'catalog_audit_history.dart';
 import 'category_manager.dart';
 import 'product_manager.dart';
-import 'store_catalog_master_service.dart';
+import 'store_catalog_sync_service.dart';
+import 'catalog_store_master_gateway.dart';
 
 class CatalogManagerDashboardPage extends StatefulWidget {
   const CatalogManagerDashboardPage({super.key});
@@ -23,7 +24,8 @@ class CatalogManagerDashboardPage extends StatefulWidget {
 class _CatalogManagerDashboardPageState
     extends State<CatalogManagerDashboardPage> {
   final _repository = const ProductCatalogRepository();
-  final _masterService = StoreCatalogMasterService();
+  final _catalogSyncService = StoreCatalogSyncService();
+  late final _storeMasterGateway = CatalogStoreMasterGateway(_catalogSyncService);
   ProductCatalog? _catalog;
   CatalogValidationReport? _report;
   bool _loading = true;
@@ -37,8 +39,8 @@ class _CatalogManagerDashboardPageState
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final catalog = await _masterService.loadMasterCatalog();
-      await _repository.saveCatalog(catalog, auditAction: 'Refresh catalog from store master');
+      await _storeMasterGateway.refreshFromMaster();
+      final catalog = await _repository.load();
       final report = CatalogValidator().validate(catalog);
       if (!mounted) return;
       setState(() {

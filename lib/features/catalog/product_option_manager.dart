@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import '../kiosk/currency/kiosk_currency.dart';
 
 import 'catalog_change_guard.dart';
+import 'store_catalog_master_service.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 
 class ProductOptionManagerController extends ChangeNotifier {
-  ProductOptionManagerController({ProductCatalogRepository? repository})
-      : _repository = repository ?? const ProductCatalogRepository();
+  ProductOptionManagerController({
+    ProductCatalogRepository? repository,
+    StoreCatalogMasterService? masterService,
+  })  : _repository = repository ?? const ProductCatalogRepository(),
+        _masterService = masterService ?? StoreCatalogMasterService(
+          repository: repository,
+        );
 
   final ProductCatalogRepository _repository;
+  final StoreCatalogMasterService _masterService;
   ProductCatalog? _catalog;
   bool loading = false;
 
@@ -21,7 +28,11 @@ class ProductOptionManagerController extends ChangeNotifier {
     loading = true;
     notifyListeners();
     try {
-      _catalog = await _repository.load();
+      try {
+        _catalog = await _masterService.loadMasterCatalog();
+      } catch (_) {
+        _catalog = await _repository.load();
+      }
     } finally {
       loading = false;
       notifyListeners();
@@ -29,40 +40,72 @@ class ProductOptionManagerController extends ChangeNotifier {
   }
 
   Future<void> saveDefinitions(List<CatalogOptionDefinition> value) async {
-    await _repository.saveOptionDefinitions(value);
-    _catalog = _catalog!.copyWith(optionDefinitions: value);
-    notifyListeners();
-  }
-
-  Future<void> saveProducts(List<CatalogProduct> value) async {
-    await _repository.saveProducts(value);
-    _catalog = _catalog!.copyWith(products: value);
+    _validateDefinitionList(value);
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        final current = catalog.optionDefinitions;
+        for (final option in value) {
+          _validateDefinition(option, current, editingId: option.optionId);
+        }
+        return catalog.copyWith(optionDefinitions: value);
+      },
+      auditAction: 'Update store master product options',
+    );
+    _catalog = accepted;
     notifyListeners();
   }
 
   Future<void> addDefinition(CatalogOptionDefinition option) async {
     _validateDefinition(option, definitions);
-    await saveDefinitions([...definitions, option]);
+    await _mutateDefinitions((catalog) {
+      return [...catalog.optionDefinitions, option];
+    });
   }
 
   Future<void> updateDefinition(CatalogOptionDefinition option) async {
     _validateDefinition(option, definitions, editingId: option.optionId);
-    final next = definitions
-        .map((item) => item.optionId == option.optionId ? option : item)
-        .toList(growable: false);
-    await saveDefinitions(next);
+    await _mutateDefinitions((catalog) {
+      final next = catalog.optionDefinitions
+          .map((item) => item.optionId == option.optionId ? option : item)
+          .toList(growable: false);
+      return next;
+    });
   }
 
   Future<void> deleteDefinition(String id) async {
-    if (products.any((product) =>
-        product.options.any((option) => option.optionId == id))) {
-      throw StateError(
-        'This option is assigned to a product. Remove it from products first.',
-      );
-    }
-    await saveDefinitions(
-      definitions.where((item) => item.optionId != id).toList(growable: false),
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        if (catalog.products.any((product) =>
+            product.options.any((option) => option.optionId == id))) {
+          throw StateError(
+            'This option is assigned to a product. Remove it from products first.',
+          );
+        }
+        return catalog.copyWith(
+          optionDefinitions: catalog.optionDefinitions
+              .where((item) => item.optionId != id)
+              .toList(growable: false),
+        );
+      },
+      auditAction: 'Delete store master product option',
     );
+    _catalog = accepted;
+    notifyListeners();
+  }
+
+  Future<void> _mutateDefinitions(
+    List<CatalogOptionDefinition> Function(ProductCatalog catalog) mutation,
+  ) async {
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        final next = mutation(catalog);
+        _validateDefinitionList(next);
+        return catalog.copyWith(optionDefinitions: next);
+      },
+      auditAction: 'Update store master product options',
+    );
+    _catalog = accepted;
+    notifyListeners();
   }
 
   Future<void> addProductOption(
@@ -70,10 +113,11 @@ class ProductOptionManagerController extends ChangeNotifier {
     ProductOption option,
   ) async {
     _validateProductOption(option, product.options);
-    await _replaceProduct(
-      product,
-      product.copyWith(options: [...product.options, option]),
-    );
+    await _mutateProductOptions(product.productId, (current, catalog) {
+      _validateProductOption(option, current);
+      _ensureOptionDefinitionExists(option.optionId, catalog);
+      return [...current, option];
+    });
   }
 
   Future<void> updateProductOption(
@@ -81,52 +125,136 @@ class ProductOptionManagerController extends ChangeNotifier {
     ProductOption option,
   ) async {
     _validateProductOption(option, product.options, editingId: option.optionId);
-    final next = product.options
-        .map((item) => item.optionId == option.optionId ? option : item)
-        .toList(growable: false);
-    await _replaceProduct(product, product.copyWith(options: next));
+    await _mutateProductOptions(product.productId, (current, catalog) {
+      final index = current.indexWhere(
+        (item) => item.optionId == option.optionId,
+      );
+      if (index < 0) {
+        throw StateError('Option not found: ${option.optionId}');
+      }
+      _validateProductOption(option, current, editingId: option.optionId);
+      _ensureOptionDefinitionExists(option.optionId, catalog);
+      final next = List<ProductOption>.of(current);
+      next[index] = option;
+      return next;
+    });
   }
 
   Future<void> removeProductOption(
     CatalogProduct product,
     String optionId,
   ) async {
-    await _replaceProduct(
-      product,
-      product.copyWith(
-        options: product.options
-            .where((item) => item.optionId != optionId)
-            .toList(growable: false),
-      ),
+    await _mutateProductOptions(product.productId, (current, _) {
+      return current
+          .where((item) => item.optionId != optionId)
+          .toList(growable: false);
+    });
+  }
+
+  Future<void> _mutateProductOptions(
+    String productId,
+    List<ProductOption> Function(
+      List<ProductOption> current,
+      ProductCatalog catalog,
+    ) mutation,
+  ) async {
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        final index = catalog.products.indexWhere(
+          (item) => item.productId == productId,
+        );
+        if (index < 0) {
+          throw StateError('Product not found: $productId');
+        }
+        final currentProduct = catalog.products[index];
+        final nextOptions = mutation(currentProduct.options, catalog);
+        _validateProductOptions(nextOptions, catalog);
+        final products = List<CatalogProduct>.of(catalog.products);
+        products[index] = currentProduct.copyWith(options: nextOptions);
+        return catalog.copyWith(products: products);
+      },
+      auditAction: 'Update store master product option assignments',
     );
+    _catalog = accepted;
+    notifyListeners();
   }
 
   Future<void> assignDefinition(
     CatalogProduct product,
     CatalogOptionDefinition definition,
   ) async {
-    final option = ProductOption(
-      optionId: definition.optionId,
-      name: definition.name,
-      price: definition.price,
-      active: definition.active,
-      kitchenPrepared: definition.kitchenPrepared,
-    );
-    if (product.options.any((item) => item.optionId == option.optionId)) {
-      return;
-    }
-    await addProductOption(product, option);
+    await _mutateProductOptions(product.productId, (current, catalog) {
+      final currentProduct = catalog.products.firstWhere(
+        (item) => item.productId == product.productId,
+      );
+      final currentDefinition = catalog.optionDefinitions.firstWhere(
+        (item) => item.optionId == definition.optionId,
+        orElse: () => throw StateError(
+          'Option not found: ${definition.optionId}',
+        ),
+      );
+      if (!currentDefinition.active ||
+          !currentDefinition.productTypes.contains(currentProduct.productType)) {
+        throw StateError(
+          'This option is not active or applicable to the product.',
+        );
+      }
+      if (current.any((item) => item.optionId == currentDefinition.optionId)) {
+        return current;
+      }
+      return [
+        ...current,
+        ProductOption(
+          optionId: currentDefinition.optionId,
+          name: currentDefinition.name,
+          price: currentDefinition.price,
+          active: currentDefinition.active,
+          kitchenPrepared: currentDefinition.kitchenPrepared,
+        ),
+      ];
+    });
   }
 
-  Future<void> _replaceProduct(
-    CatalogProduct oldProduct,
-    CatalogProduct nextProduct,
-  ) async {
-    final next = products
-        .map((item) =>
-            item.productId == oldProduct.productId ? nextProduct : item)
-        .toList(growable: false);
-    await saveProducts(next);
+  void _validateDefinitionList(List<CatalogOptionDefinition> value) {
+    final ids = <String>{};
+    for (final option in value) {
+      if (!ids.add(option.optionId)) {
+        throw StateError('Option ID already exists: ${option.optionId}.');
+      }
+    }
+  }
+
+  void _ensureOptionDefinitionExists(
+    String optionId,
+    ProductCatalog catalog,
+  ) {
+    if (!catalog.optionDefinitions.any(
+      (definition) => definition.optionId == optionId,
+    )) {
+      throw StateError(
+        'Option $optionId is not defined in Store Master.',
+      );
+    }
+  }
+
+  void _validateProductOptions(
+    List<ProductOption> options,
+    ProductCatalog catalog,
+  ) {
+    final ids = <String>{};
+    for (final option in options) {
+      _validateProductOption(option, options, editingId: option.optionId);
+      if (!ids.add(option.optionId)) {
+        throw StateError('Option is already assigned to this product.');
+      }
+      if (!catalog.optionDefinitions.any(
+        (definition) => definition.optionId == option.optionId,
+      )) {
+        throw StateError(
+          'Option ${option.optionId} is not defined in Store Master.',
+        );
+      }
+    }
   }
 
   void _validateDefinition(

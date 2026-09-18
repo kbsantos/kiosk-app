@@ -2,14 +2,21 @@ import 'package:flutter/material.dart';
 import '../kiosk/currency/kiosk_currency.dart';
 
 import 'catalog_change_guard.dart';
+import 'store_catalog_master_service.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 
 class ProductSizeVariantManagerController extends ChangeNotifier {
-  ProductSizeVariantManagerController({ProductCatalogRepository? repository})
-      : _repository = repository ?? const ProductCatalogRepository();
+  ProductSizeVariantManagerController({
+    ProductCatalogRepository? repository,
+    StoreCatalogMasterService? masterService,
+  })  : _repository = repository ?? const ProductCatalogRepository(),
+        _masterService = masterService ?? StoreCatalogMasterService(
+          repository: repository,
+        );
 
   final ProductCatalogRepository _repository;
+  final StoreCatalogMasterService _masterService;
   List<CatalogProduct> _products = const [];
   bool _loading = false;
 
@@ -20,7 +27,12 @@ class ProductSizeVariantManagerController extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      final catalog = await _repository.load();
+      ProductCatalog catalog;
+      try {
+        catalog = await _masterService.loadMasterCatalog();
+      } catch (_) {
+        catalog = await _repository.load();
+      }
       _products = List.of(catalog.products);
     } finally {
       _loading = false;
@@ -34,9 +46,33 @@ class ProductSizeVariantManagerController extends ChangeNotifier {
     if (index < 0) {
       throw StateError('Product not found: ${product.productId}');
     }
-    final updated = List<CatalogProduct>.of(_products)..[index] = product;
-    await _repository.saveProducts(updated);
-    _products = updated;
+
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        _validateAgainst(product, catalog);
+        final masterIndex = catalog.products.indexWhere(
+          (item) => item.productId == product.productId,
+        );
+        if (masterIndex < 0) {
+          throw StateError('Product not found: ${product.productId}');
+        }
+
+        // The editor may be holding an older product snapshot. Replace only
+        // the size/variant collections being managed here so a concurrent
+        // Store Master change to the product name, price, options, etc. is
+        // not accidentally overwritten by a stale UI snapshot.
+        final masterProduct = catalog.products[masterIndex];
+        final updatedProduct = masterProduct.copyWith(
+          sizes: product.sizes,
+          variants: product.variants,
+        );
+        final updated = List<CatalogProduct>.of(catalog.products)
+          ..[masterIndex] = updatedProduct;
+        return catalog.copyWith(products: updated);
+      },
+      auditAction: 'Update product sizes and variants in store master',
+    );
+    _products = List.of(accepted.products);
     notifyListeners();
   }
 
@@ -90,6 +126,20 @@ class ProductSizeVariantManagerController extends ChangeNotifier {
             product.variants.where((item) => item.variantId != id).toList(),
       ),
     );
+  }
+
+  void _validateAgainst(CatalogProduct product, ProductCatalog catalog) {
+    if (!catalog.products.any((item) => item.productId == product.productId)) {
+      throw StateError('Product not found: ${product.productId}');
+    }
+    if (product.sizes.map((item) => item.sizeId).toSet().length !=
+        product.sizes.length) {
+      throw StateError('Duplicate size ID.');
+    }
+    if (product.variants.map((item) => item.variantId).toSet().length !=
+        product.variants.length) {
+      throw StateError('Duplicate variant ID.');
+    }
   }
 
   void _validate(CatalogProduct product) {

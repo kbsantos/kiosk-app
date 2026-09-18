@@ -76,4 +76,26 @@ void main() {
     expect(restored.toJson()['icon'], '⭐');
   });
 
+
+  test('product variant preserves ID, price, and active state through catalog JSON', () {
+    const variant = ProductVariant(
+      variantId: 'cheese',
+      name: 'Cheese',
+      price: 95,
+      active: false,
+    );
+
+    final restored = ProductVariant.fromJson(variant.toJson());
+
+    expect(restored.variantId, 'cheese');
+    expect(restored.name, 'Cheese');
+    expect(restored.price, 95);
+    expect(restored.active, isFalse);
+    expect(variant.toJson(), {
+      'variantId': 'cheese',
+      'name': 'Cheese',
+      'price': 95,
+      'active': false,
+    });
+  });
 }

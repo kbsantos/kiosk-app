@@ -221,6 +221,20 @@ class KioskOrderRepository {
       throw StateError('Cannot create an order from an empty cart.');
     }
 
+    // Freeze the checkout snapshot before persistence. Both the payment
+    // amount and the stored order total must come from the same item set.
+    final List<KioskCartItem> checkoutItems =
+        List<KioskCartItem>.unmodifiable(cart.items);
+    final checkoutTotal = checkoutItems.fold<int>(
+      0,
+      (sum, item) => sum + item.total,
+    );
+    if (checkoutTotal != cart.total) {
+      throw StateError(
+        'Checkout total mismatch: item totals=$checkoutTotal, cart total=${cart.total}.',
+      );
+    }
+
     final now = DateTime.now();
     final orderNumber = await _nextOrderNumber(now);
 
@@ -233,8 +247,8 @@ class KioskOrderRepository {
       paymentStatus: paymentStatus,
       orderMode: orderMode,
       status: status,
-      items: List.unmodifiable(cart.items),
-      total: cart.total,
+      items: checkoutItems,
+      total: checkoutTotal,
     );
 
     await _append(order);
@@ -254,6 +268,14 @@ class KioskOrderRepository {
     }
     if (items.isEmpty) {
       throw StateError('A transaction must contain at least one item.');
+    }
+
+    final itemTotal = items.fold<int>(
+      0,
+      (sum, item) => sum + item.total,
+    );
+    if (itemTotal < 0) {
+      throw StateError('Transaction total cannot be negative.');
     }
 
     final orders = await getOrders();

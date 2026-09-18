@@ -2,12 +2,19 @@ import 'package:flutter/material.dart';
 
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
+import 'store_catalog_master_service.dart';
 
 class ProductCategoryAssignmentController extends ChangeNotifier {
-  ProductCategoryAssignmentController({ProductCatalogRepository? repository})
-      : _repository = repository ?? const ProductCatalogRepository();
+  ProductCategoryAssignmentController({
+    ProductCatalogRepository? repository,
+    StoreCatalogMasterService? masterService,
+  })  : _repository = repository ?? const ProductCatalogRepository(),
+        _masterService = masterService ?? StoreCatalogMasterService(
+          repository: repository,
+        );
 
   final ProductCatalogRepository _repository;
+  final StoreCatalogMasterService _masterService;
   List<ProductCategory> _categories = const [];
   List<CatalogProduct> _products = const [];
   bool _loading = false;
@@ -20,7 +27,15 @@ class ProductCategoryAssignmentController extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      final catalog = await _repository.load();
+      ProductCatalog catalog;
+      try {
+        catalog = await _masterService.loadMasterCatalog();
+      } catch (_) {
+        // Keep the assignment screen readable with the local operational
+        // catalog when Store Master is unavailable. Mutations remain
+        // master-first and are never written directly to local products.
+        catalog = await _repository.load();
+      }
       _categories = List.of(catalog.categories);
       _products = List.of(catalog.products);
     } finally {
@@ -30,15 +45,35 @@ class ProductCategoryAssignmentController extends ChangeNotifier {
   }
 
   Future<void> assignProduct(CatalogProduct product, String categoryId) async {
-    if (!_categories.any((category) => category.categoryId == categoryId)) {
-      throw StateError('Category not found: $categoryId');
-    }
-    final index = _products.indexWhere((item) => item.productId == product.productId);
-    if (index < 0) throw StateError('Product not found: ${product.productId}');
-    final updated = List<CatalogProduct>.of(_products)
-      ..[index] = product.copyWith(categoryId: categoryId);
-    await _repository.saveProducts(updated);
-    _products = updated;
+    final requestedCategoryId = categoryId.trim();
+    final accepted = await _masterService.mutateCatalog(
+      (catalog) {
+        if (!catalog.categories.any(
+          (category) => category.categoryId == requestedCategoryId,
+        )) {
+          throw StateError('Category not found: $requestedCategoryId');
+        }
+
+        final index = catalog.products.indexWhere(
+          (item) => item.productId == product.productId,
+        );
+        if (index < 0) {
+          throw StateError('Product not found: ${product.productId}');
+        }
+
+        // Mutate only the category assignment on the current master product.
+        // Do not copy the potentially stale product object supplied by the UI
+        // back over newer master fields.
+        final updatedProducts = List<CatalogProduct>.of(catalog.products)
+          ..[index] = catalog.products[index].copyWith(
+            categoryId: requestedCategoryId,
+          );
+        return catalog.copyWith(products: updatedProducts);
+      },
+      auditAction: 'Assign product to category in store master',
+    );
+    _categories = List.of(accepted.categories);
+    _products = List.of(accepted.products);
     notifyListeners();
   }
 

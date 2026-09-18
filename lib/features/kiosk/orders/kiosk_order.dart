@@ -120,6 +120,9 @@ class KioskOrder {
                   'price': item.variant!.price,
                 },
           'quantity': item.quantity,
+          // Persist the pre-option price so reloading an order cannot treat
+          // the final unit price as the new base price and add options again.
+          'basePrice': item.basePrice,
           'unitPrice': item.unitPrice,
           'total': item.total,
           'options': item.options
@@ -183,23 +186,6 @@ class KioskOrder {
         storedTemperature: storedTemperature,
       );
 
-      final product = KioskProduct(
-        id: data['productId'] as String,
-        name: data['productName'] as String,
-        price: size == null && variant == null
-            ? (data['unitPrice'] as int?)
-            : null,
-        category: category,
-        groupId: data['groupId'] as String?,
-        groupName: data['groupName'] as String?,
-        productType: productType,
-        drinkTemperature: effectiveTemperature,
-        kitchenPrepared: data['kitchenPrepared'] as bool? ??
-            (category == KioskCategory.riceMeals),
-        sizes: size == null ? const [] : [size],
-        variants: variant == null ? const [] : [variant],
-      );
-
       final rawOptions = (data['options'] as List<dynamic>? ?? const []);
       final options = rawOptions.map((rawOption) {
         final option = Map<String, dynamic>.from(rawOption as Map);
@@ -210,6 +196,51 @@ class KioskOrder {
           kitchenPrepared: option['kitchenPrepared'] as bool? ?? false,
         );
       }).toList(growable: false);
+
+      final storedUnitPrice = data['unitPrice'] as int?;
+      final storedBasePrice = data['basePrice'] as int?;
+      final optionTotal = options.fold<int>(
+        0,
+        (sum, option) => sum + option.price,
+      );
+      // Legacy snapshots did not persist basePrice. For a product without a
+      // size/variant, recover the base price from the final stored unit price
+      // before reconstructing the cart item. This prevents option prices from
+      // being added repeatedly on each reload.
+      final legacyBasePrice = (storedUnitPrice ?? 0) - optionTotal;
+      final basePrice = storedBasePrice ??
+          (legacyBasePrice < 0 ? 0 : legacyBasePrice);
+
+      if (size != null && size.price == null) {
+        size = KioskSize(
+          id: size.id,
+          name: size.name,
+          volumeMl: size.volumeMl,
+          displayVolume: size.displayVolume,
+          price: basePrice,
+        );
+      } else if (variant != null && variant.price == null) {
+        variant = KioskVariant(
+          id: variant.id,
+          name: variant.name,
+          price: basePrice,
+        );
+      }
+
+      final product = KioskProduct(
+        id: data['productId'] as String,
+        name: data['productName'] as String,
+        price: size == null && variant == null ? basePrice : null,
+        category: category,
+        groupId: data['groupId'] as String?,
+        groupName: data['groupName'] as String?,
+        productType: productType,
+        drinkTemperature: effectiveTemperature,
+        kitchenPrepared: data['kitchenPrepared'] as bool? ??
+            (category == KioskCategory.riceMeals),
+        sizes: size == null ? const [] : [size],
+        variants: variant == null ? const [] : [variant],
+      );
 
       return KioskCartItem(
         product: product,

@@ -6,6 +6,8 @@ import '../kiosk/settings/kiosk_settings_repository.dart';
 import '../../product_catalog/catalog_schema_guard.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
+import 'store_catalog_master_service.dart';
+import 'catalog_sync_version_guard.dart';
 
 class StoreCatalogSyncResult {
   const StoreCatalogSyncResult({
@@ -23,27 +25,34 @@ class StoreCatalogSyncResult {
   final bool updated;
 
   String get summary =>
-      '${updated ? 'Catalog refreshed' : 'Catalog already current'}: '
+      '${updated ? 'Catalog synchronized' : 'Catalog already current'}: '
       '$categoryCount categories, $productCount products, '
       '$optionDefinitionCount option definitions, version $catalogVersion.';
 }
 
-/// Synchronizes the kiosk's local ProductCatalog from the store-level
-/// Supabase master catalog. The local catalog remains the operational copy;
-/// this service never publishes local changes to the master.
+/// Synchronizes the kiosk's local ProductCatalog with the store-level
+/// Supabase master catalog. The local catalog remains the operational copy,
+/// while explicit administration actions can publish it to the master using
+/// optimistic version checks.
 class StoreCatalogSyncService {
   StoreCatalogSyncService({
     ProductCatalogRepository? repository,
     KioskSettingsRepository? settingsRepository,
   })  : _repository = repository ?? const ProductCatalogRepository(),
-        _settingsRepository = settingsRepository ?? KioskSettingsRepository();
+        _settingsRepository = settingsRepository ?? KioskSettingsRepository(),
+        _masterService = StoreCatalogMasterService(
+          repository: repository,
+          settingsRepository: settingsRepository,
+        );
 
   static const _versionKey = 'bigger_brew_store_catalog_master_version_v1';
   static const _catalogRpc = 'get_store_catalog';
   static const _versionRpc = 'get_store_catalog_version';
+  static const _reportSyncRpc = 'report_kiosk_catalog_sync';
 
   final ProductCatalogRepository _repository;
   final KioskSettingsRepository _settingsRepository;
+  final StoreCatalogMasterService _masterService;
 
   Future<String?> localMasterVersion() async {
     final prefs = await SharedPreferences.getInstance();
@@ -94,6 +103,11 @@ class StoreCatalogSyncService {
 
       final localVersion = await localMasterVersion();
       if (localVersion == masterVersion) {
+        // The local version already matches the master. Validate the cached
+        // catalog before reporting it as successfully synchronized.
+        final local = await _repository.load();
+        ProductCatalogRepository.validate(local);
+        await _reportSuccessfulSync(settings, masterVersion);
         return null;
       }
 
@@ -124,6 +138,8 @@ class StoreCatalogSyncService {
     final localVersion = await localMasterVersion();
     if (!force && localVersion == masterVersion) {
       final local = await _repository.load();
+      ProductCatalogRepository.validate(local);
+      await _reportSuccessfulSync(settings, masterVersion);
       return StoreCatalogSyncResult(
         catalogVersion: local.catalogVersion,
         categoryCount: local.categories.length,
@@ -155,24 +171,72 @@ class StoreCatalogSyncService {
       catalogJson,
       source: 'store catalog master',
     );
-    ProductCatalogRepository.validate(catalog);
+    final authoritativeVersion =
+        CatalogSyncVersionGuard.ensureCatalogVersionMatchesMaster(
+      catalogVersion: catalog.catalogVersion,
+      masterVersion: masterVersion,
+    );
+    final authoritativeCatalog = catalog.copyWith(
+      catalogVersion: authoritativeVersion,
+    );
+    ProductCatalogRepository.validate(authoritativeCatalog);
 
     // Save a rollback point before replacing the operational local copy.
     final current = await _repository.load();
     await _repository.saveImportRecoveryBackup(current);
     await _repository.saveCatalog(
-      catalog,
+      authoritativeCatalog,
       auditAction: 'Refresh catalog from store master',
     );
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_versionKey, catalog.catalogVersion);
+    await prefs.setString(_versionKey, authoritativeVersion);
+    await _reportSuccessfulSync(settings, authoritativeVersion);
 
     return StoreCatalogSyncResult(
-      catalogVersion: catalog.catalogVersion,
-      categoryCount: catalog.categories.length,
-      productCount: catalog.products.length,
-      optionDefinitionCount: catalog.optionDefinitions.length,
+      catalogVersion: authoritativeVersion,
+      categoryCount: authoritativeCatalog.categories.length,
+      productCount: authoritativeCatalog.products.length,
+      optionDefinitionCount: authoritativeCatalog.optionDefinitions.length,
+      updated: true,
+    );
+  }
+
+  /// Publishes the kiosk's current local catalog to an existing store master.
+  ///
+  /// This is intentionally different from one-time initialization: the kiosk
+  /// must first be synchronized to a known master version. If the master has
+  /// changed since the kiosk last pulled it, the publish is rejected rather
+  /// than overwriting newer Store Management changes. The database RPC also
+  /// performs the final optimistic-lock check atomically.
+  Future<StoreCatalogSyncResult> syncLocalCatalogToMaster() async {
+    final settings = await _settingsRepository.load();
+    _validateSettings(settings);
+
+    final catalog = await _repository.load();
+    CatalogSchemaGuard.ensureSupported(
+      catalog.schemaVersion,
+      source: 'local kiosk catalog',
+    );
+    ProductCatalogRepository.validate(catalog);
+
+    final masterVersion = await getMasterVersion();
+    final localVersion = CatalogSyncVersionGuard.ensureLocalMatchesMaster(
+      localVersion: await localMasterVersion(),
+      masterVersion: masterVersion,
+    );
+
+    final accepted = await _masterService.publishCatalog(
+      catalog,
+      expectedVersion: localVersion,
+      auditAction: 'Sync local catalog to store master',
+    );
+
+    return StoreCatalogSyncResult(
+      catalogVersion: accepted.catalogVersion,
+      categoryCount: accepted.categories.length,
+      productCount: accepted.products.length,
+      optionDefinitionCount: accepted.optionDefinitions.length,
       updated: true,
     );
   }
@@ -204,16 +268,50 @@ class StoreCatalogSyncService {
       throw StateError('The database did not return a catalog version.');
     }
 
+    final acceptedCatalog = CatalogSyncVersionGuard.withAuthoritativeVersion(
+      catalog,
+      version,
+    );
+    ProductCatalogRepository.validate(acceptedCatalog);
+    await _repository.saveCatalog(
+      acceptedCatalog,
+      auditAction: 'Initialize local catalog from store master',
+    );
+
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_versionKey, version);
+    await _reportSuccessfulSync(settings, version);
 
     return StoreCatalogSyncResult(
-      catalogVersion: version,
-      categoryCount: catalog.categories.length,
-      productCount: catalog.products.length,
-      optionDefinitionCount: catalog.optionDefinitions.length,
+      catalogVersion: acceptedCatalog.catalogVersion,
+      categoryCount: acceptedCatalog.categories.length,
+      productCount: acceptedCatalog.products.length,
+      optionDefinitionCount: acceptedCatalog.optionDefinitions.length,
       updated: true,
     );
+  }
+
+  /// Reports a successful catalog cache/validation to Store Management.
+  /// Reporting is deliberately non-fatal: catalog synchronization must remain
+  /// usable even when the reporting migration is not installed yet, or the
+  /// kiosk temporarily cannot reach Supabase after a successful local refresh.
+  Future<void> _reportSuccessfulSync(
+    KioskSettings settings,
+    String catalogVersion,
+  ) async {
+    try {
+      await Supabase.instance.client.rpc(
+        _reportSyncRpc,
+        params: {
+          'p_store_id': settings.storeId.trim(),
+          'p_device_code': settings.deviceId.trim(),
+          'p_catalog_version': catalogVersion.trim(),
+        },
+      );
+    } catch (_) {
+      // Sync reporting is observability only. Never roll back a valid local
+      // catalog because Store Management status reporting is unavailable.
+    }
   }
 
   void _validateSettings(KioskSettings settings) {
