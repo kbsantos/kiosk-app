@@ -122,12 +122,18 @@ class KioskCatalogOption {
   final String name;
   final int price;
   final bool kitchenPrepared;
+  /// True when this option should start selected for the product.
+  final bool autoApply;
+  /// True when this option is a mandatory catalog charge automatically added to the order.
+  final bool automatic;
 
   const KioskCatalogOption({
     required this.id,
     required this.name,
     required this.price,
     this.kitchenPrepared = false,
+    this.autoApply = false,
+    this.automatic = false,
   });
 }
 
@@ -182,12 +188,15 @@ class KioskOption {
   final String name;
   final int price;
   final bool kitchenPrepared;
+  /// True when this option is a mandatory catalog charge and cannot be removed by the customer.
+  final bool automatic;
 
   const KioskOption({
     required this.id,
     required this.name,
     required this.price,
     this.kitchenPrepared = false,
+    this.automatic = false,
   });
 }
 
@@ -211,8 +220,22 @@ class KioskCartItem {
 
   int get basePrice => size?.price ?? variant?.price ?? product.price ?? 0;
 
-  int get unitPrice =>
-      basePrice + options.fold<int>(0, (sum, option) => sum + option.price);
+  int get automaticChargeTotal =>
+      options.where((option) => option.automatic).fold<int>(
+            0,
+            (sum, option) => sum + option.price,
+          );
+
+  int get selectableOptionTotal =>
+      options.where((option) => !option.automatic).fold<int>(
+            0,
+            (sum, option) => sum + option.price,
+          );
+
+  int get unitPrice => basePrice + options.fold<int>(
+        0,
+        (sum, option) => sum + option.price,
+      );
 
   int get total => unitPrice * quantity;
 

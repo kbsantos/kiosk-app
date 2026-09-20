@@ -3,22 +3,15 @@ import 'package:flutter/material.dart';
 import '../kiosk/currency/kiosk_currency.dart';
 
 import 'catalog_change_guard.dart';
-import 'store_catalog_master_service.dart';
 
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 
 class ProductManagerController extends ChangeNotifier {
-  ProductManagerController({
-    ProductCatalogRepository? repository,
-    StoreCatalogMasterService? masterService,
-  })  : _repository = repository ?? const ProductCatalogRepository(),
-        _masterService = masterService ?? StoreCatalogMasterService(
-          repository: repository,
-        );
+  ProductManagerController({ProductCatalogRepository? repository})
+      : _repository = repository ?? const ProductCatalogRepository();
 
   final ProductCatalogRepository _repository;
-  final StoreCatalogMasterService _masterService;
   List<CatalogProduct> _products = const [];
   List<ProductCategory> _categories = const [];
   bool _loading = false;
@@ -31,12 +24,7 @@ class ProductManagerController extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      ProductCatalog catalog;
-      try {
-        catalog = await _masterService.loadMasterCatalog();
-      } catch (_) {
-        catalog = await _repository.load();
-      }
+      final catalog = await _repository.load();
       _products = List.of(catalog.products);
       _categories = List.of(catalog.categories);
     } finally {
@@ -51,23 +39,9 @@ class ProductManagerController extends ChangeNotifier {
         _products.indexWhere((item) => item.productId == product.productId);
     if (index < 0) throw StateError('Product not found: ${product.productId}');
 
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        _validateAgainst(product, catalog);
-        final index = catalog.products.indexWhere(
-          (item) => item.productId == product.productId,
-        );
-        if (index < 0) {
-          throw StateError('Product not found: ${product.productId}');
-        }
-        final updated = List<CatalogProduct>.of(catalog.products)
-          ..[index] = product;
-        return catalog.copyWith(products: updated);
-      },
-      auditAction: 'Update product in store master',
-    );
-    _products = List.of(accepted.products);
-    _categories = List.of(accepted.categories);
+    final updated = List<CatalogProduct>.of(_products)..[index] = product;
+    await _repository.saveProducts(updated);
+    _products = updated;
     notifyListeners();
   }
 
@@ -76,18 +50,9 @@ class ProductManagerController extends ChangeNotifier {
     if (_products.any((item) => item.productId == product.productId)) {
       throw StateError('Product ID already exists: ${product.productId}');
     }
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        _validateAgainst(product, catalog);
-        if (catalog.products.any((item) => item.productId == product.productId)) {
-          throw StateError('Product ID already exists: ${product.productId}');
-        }
-        return catalog.copyWith(products: [...catalog.products, product]);
-      },
-      auditAction: 'Add product to store master',
-    );
-    _products = List.of(accepted.products);
-    _categories = List.of(accepted.categories);
+    final updated = List<CatalogProduct>.of(_products)..add(product);
+    await _repository.saveProducts(updated);
+    _products = updated;
     notifyListeners();
   }
 
@@ -102,20 +67,9 @@ class ProductManagerController extends ChangeNotifier {
         _products.indexWhere((item) => item.productId == product.productId);
     if (index < 0) throw StateError('Product not found: ${product.productId}');
 
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        final updated = catalog.products
-            .where((item) => item.productId != product.productId)
-            .toList();
-        if (updated.length == catalog.products.length) {
-          throw StateError('Product not found: ${product.productId}');
-        }
-        return catalog.copyWith(products: updated);
-      },
-      auditAction: 'Delete product from store master',
-    );
-    _products = List.of(accepted.products);
-    _categories = List.of(accepted.categories);
+    final updated = List<CatalogProduct>.of(_products)..removeAt(index);
+    await _repository.saveProducts(updated);
+    _products = updated;
     notifyListeners();
   }
 
@@ -129,14 +83,7 @@ class ProductManagerController extends ChangeNotifier {
   int pricedSizeCount(CatalogProduct product) =>
       product.sizes.where((size) => size.price != null).length;
 
-  void _validate(CatalogProduct product) =>
-      _validateAgainst(product, ProductCatalog(
-        catalogVersion: '',
-        categories: _categories,
-        products: _products,
-      ));
-
-  void _validateAgainst(CatalogProduct product, ProductCatalog catalog) {
+  void _validate(CatalogProduct product) {
     if (product.productId.trim().isEmpty) {
       throw StateError('Product ID cannot be empty.');
     }
@@ -147,7 +94,7 @@ class ProductManagerController extends ChangeNotifier {
     if (!validTypes.contains(product.productType)) {
       throw StateError('Invalid product type: ${product.productType}');
     }
-    if (!catalog.categories
+    if (!_categories
         .any((category) => category.categoryId == product.categoryId)) {
       throw StateError('Category not found: ${product.categoryId}');
     }

@@ -11,7 +11,6 @@ import '../../product_catalog/catalog_schema_guard.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import '../kiosk/staff_access.dart';
 import 'catalog_change_guard.dart';
-import 'catalog_recovery_store_master.dart';
 import 'catalog_permissions.dart';
 
 class _CatalogSyncCancelledException implements Exception {
@@ -188,7 +187,6 @@ class CatalogSyncPage extends StatefulWidget {
 class _CatalogSyncPageState extends State<CatalogSyncPage> {
   final _repository = const ProductCatalogRepository();
   late final CatalogSyncService _service = CatalogSyncService(_repository);
-  late final CatalogRecoveryStoreMaster _recovery = CatalogRecoveryStoreMaster(repository: _repository);
   ProductCatalog? _catalog;
   String? _deviceId;
   bool _busy = false;
@@ -283,12 +281,14 @@ class _CatalogSyncPageState extends State<CatalogSyncPage> {
         return;
       }
 
-      final accepted = await _recovery.applyImportedCatalog(
-        currentLocal: current,
-        mergedCatalog: incoming.catalog,
+      await _repository.saveBackup(current);
+      await _repository.saveImportRecoveryBackup(current);
+      await _repository.saveCatalog(
+        incoming.catalog,
+        auditAction: 'Sync catalog from source kiosk',
       );
       if (mounted) {
-        setState(() => _catalog = accepted);
+        setState(() => _catalog = incoming.catalog);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Catalog synchronized successfully.')));
       }

@@ -3,6 +3,7 @@ import '../currency/kiosk_currency.dart';
 
 import '../orders/kiosk_order.dart';
 import '../models/kiosk_models.dart';
+import '../reporting/kiosk_automatic_charge_summary.dart';
 
 class KioskEodExcelExporter {
   static Future<bool> export({
@@ -17,6 +18,7 @@ class KioskEodExcelExporter {
     final drinkSummarySheet = workbook['Drink Summary'];
     final mealSummarySheet = workbook['Meal Summary'];
     final accessoriesSummarySheet = workbook['Accessories Daily Summary'];
+    final automaticChargesSheet = workbook['Automatic Charges'];
 
     workbook.delete('Sheet1');
     workbook.setDefaultSheet('End of Day Summary');
@@ -64,6 +66,17 @@ class KioskEodExcelExporter {
     summary.appendRow(
         [TextCellValue('Payment Still Pending (${KioskCurrency.code})'), IntCellValue(pending)]);
     summary.appendRow([TextCellValue('Refunds (${KioskCurrency.code})'), IntCellValue(refunds)]);
+
+    final automaticChargeSummary =
+        KioskAutomaticChargeSummary.fromOrders(completed);
+    summary.appendRow([
+      TextCellValue('Automatic Charges (${KioskCurrency.code})'),
+      IntCellValue(automaticChargeSummary.totalAmount),
+    ]);
+    summary.appendRow([
+      TextCellValue('Sales Excl. Automatic Charges (${KioskCurrency.code})'),
+      IntCellValue(sales - automaticChargeSummary.totalAmount),
+    ]);
     summary.appendRow([]);
     summary.appendRow([TextCellValue('PAYMENT BREAKDOWN')]);
     summary.appendRow([
@@ -169,6 +182,10 @@ class KioskEodExcelExporter {
       sheet: accessoriesSummarySheet,
       completedOrders: completed,
     );
+    _buildAutomaticChargesSummary(
+      sheet: automaticChargesSheet,
+      completedOrders: completed,
+    );
 
     _styleHeader(summary, 0, 0, 'BIGGER BREW END-OF-DAY SUMMARY');
     _styleHeader(summary, 0, 8, 'PAYMENT BREAKDOWN');
@@ -182,6 +199,7 @@ class KioskEodExcelExporter {
     _setWidths(drinkSummarySheet, [30, 12, 12, 12, 14]);
     _setWidths(mealSummarySheet, [30, 14, 28, 14]);
     _setWidths(accessoriesSummarySheet, [34, 14]);
+    _setWidths(automaticChargesSheet, [34, 14, 18]);
 
     final safeDate = '${date.year.toString().padLeft(4, '0')}-'
         '${date.month.toString().padLeft(2, '0')}-'
@@ -269,6 +287,34 @@ class KioskEodExcelExporter {
     _styleHeader(sheet, 0, 0, 'DRINK SUMMARY — CUPS');
     _styleRow(sheet, 0, 1);
     _styleRow(sheet, 0, sheet.maxRows - 1);
+  }
+
+  static void _buildAutomaticChargesSummary({
+    required Sheet sheet,
+    required List<KioskOrder> completedOrders,
+  }) {
+    final summary = KioskAutomaticChargeSummary.fromOrders(completedOrders);
+
+    sheet.appendRow([TextCellValue('AUTOMATIC CHARGES — SALES')]);
+    sheet.appendRow([
+      TextCellValue('Charge'),
+      TextCellValue('Qty'),
+      TextCellValue('Sales (${KioskCurrency.code})'),
+    ]);
+
+    for (final line in summary.lines) {
+      sheet.appendRow([
+        TextCellValue(line.name),
+        IntCellValue(line.quantity),
+        IntCellValue(line.amount),
+      ]);
+    }
+
+    sheet.appendRow([
+      TextCellValue('TOTAL AUTOMATIC CHARGES'),
+      IntCellValue(summary.totalQuantity),
+      IntCellValue(summary.totalAmount),
+    ]);
   }
 
   static void _buildAccessoriesSummary({

@@ -7,19 +7,12 @@ import 'package:flutter/material.dart';
 import 'product_option_manager.dart';
 import 'catalog_change_guard.dart';
 import 'product_manager.dart';
-import 'store_catalog_master_service.dart';
 
 class CategoryManagerController extends ChangeNotifier {
-  CategoryManagerController({
-    ProductCatalogRepository? repository,
-    StoreCatalogMasterService? masterService,
-  })  : _repository = repository ?? const ProductCatalogRepository(),
-        _masterService = masterService ?? StoreCatalogMasterService(
-          repository: repository,
-        );
+  CategoryManagerController({ProductCatalogRepository? repository})
+      : _repository = repository ?? const ProductCatalogRepository();
 
   final ProductCatalogRepository _repository;
-  final StoreCatalogMasterService _masterService;
   List<ProductCategory> _categories = const [];
   List<CatalogProduct> _products = const [];
   bool _loading = false;
@@ -34,15 +27,7 @@ class CategoryManagerController extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      ProductCatalog catalog;
-      try {
-        catalog = await _masterService.loadMasterCatalog();
-      } catch (_) {
-        // Keep catalog administration usable with the existing local catalog
-        // when Store Master is unavailable. A later mutation still uses the
-        // master-first write path and its optimistic version check.
-        catalog = await _repository.load();
-      }
+      final catalog = await _repository.load();
       _categories = List.of(catalog.categories);
       _products = List.of(catalog.products);
     } finally {
@@ -52,27 +37,15 @@ class CategoryManagerController extends ChangeNotifier {
   }
 
   Future<void> save(ProductCategory category) async {
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        _validateCategoryAgainst(
-          category,
-          catalog.categories,
-          editingId: category.categoryId,
-        );
-        final index = catalog.categories.indexWhere(
-          (item) => item.categoryId == category.categoryId,
-        );
-        if (index < 0) {
-          throw StateError('Category not found: ${category.categoryId}');
-        }
-        final updated = List<ProductCategory>.of(catalog.categories)
-          ..[index] = category;
-        return catalog.copyWith(categories: updated);
-      },
-      auditAction: 'Update category in store master',
-    );
-    _categories = List.of(accepted.categories);
-    _products = List.of(accepted.products);
+    _validateCategory(category, editingId: category.categoryId);
+    final index = _categories
+        .indexWhere((item) => item.categoryId == category.categoryId);
+    if (index < 0) {
+      throw StateError('Category not found: ${category.categoryId}');
+    }
+    final updated = List<ProductCategory>.of(_categories)..[index] = category;
+    await _repository.saveCategories(updated);
+    _categories = updated;
     notifyListeners();
   }
 
@@ -90,27 +63,17 @@ class CategoryManagerController extends ChangeNotifier {
       active: active,
       icon: icon,
     );
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        _validateCategoryAgainst(category, catalog.categories);
-        if (catalog.categories.any(
-          (item) => item.categoryId == category.categoryId,
-        )) {
-          throw StateError('Category ID already exists.');
-        }
-        if (catalog.categories.any(
-          (item) => item.name.toLowerCase() == category.name.toLowerCase(),
-        )) {
-          throw StateError('Category name already exists.');
-        }
-        return catalog.copyWith(
-          categories: [...catalog.categories, category],
-        );
-      },
-      auditAction: 'Add category to store master',
-    );
-    _categories = List.of(accepted.categories);
-    _products = List.of(accepted.products);
+    _validateCategory(category);
+    if (_categories.any((item) => item.categoryId == category.categoryId)) {
+      throw StateError('Category ID already exists.');
+    }
+    if (_categories.any(
+        (item) => item.name.toLowerCase() == category.name.toLowerCase())) {
+      throw StateError('Category name already exists.');
+    }
+    final updated = [..._categories, category];
+    await _repository.saveCategories(updated);
+    _categories = updated;
     notifyListeners();
   }
 
@@ -119,47 +82,31 @@ class CategoryManagerController extends ChangeNotifier {
   }
 
   Future<void> delete(ProductCategory category) async {
-    final accepted = await _masterService.mutateCatalog(
-      (catalog) {
-        final count = catalog.products
-            .where((product) => product.categoryId == category.categoryId)
-            .length;
-        if (count > 0) {
-          throw StateError(
-            'Cannot delete a category containing $count product${count == 1 ? '' : 's'}. Disable it instead.',
-          );
-        }
-        final updated = catalog.categories
-            .where((item) => item.categoryId != category.categoryId)
-            .toList();
-        if (updated.length == catalog.categories.length) return catalog;
-        return catalog.copyWith(categories: updated);
-      },
-      auditAction: 'Delete category from store master',
-    );
-    _categories = List.of(accepted.categories);
-    _products = List.of(accepted.products);
+    final count = productCount(category.categoryId);
+    if (count > 0) {
+      throw StateError(
+          'Cannot delete a category containing $count product${count == 1 ? '' : 's'}. Disable it instead.');
+    }
+    final updated = _categories
+        .where((item) => item.categoryId != category.categoryId)
+        .toList();
+    if (updated.length == _categories.length) return;
+    await _repository.saveCategories(updated);
+    _categories = updated;
     notifyListeners();
   }
 
-  void _validateCategoryAgainst(
-    ProductCategory category,
-    List<ProductCategory> existing, {
-    String? editingId,
-  }) {
+  void _validateCategory(ProductCategory category, {String? editingId}) {
     if (!RegExp(r'^[a-z0-9]+(?:_[a-z0-9]+)*$').hasMatch(category.categoryId)) {
       throw StateError(
-        'Category ID must use lowercase letters, numbers, and underscores.',
-      );
+          'Category ID must use lowercase letters, numbers, and underscores.');
     }
     if (category.name.trim().isEmpty) {
       throw StateError('Category name is required.');
     }
-    if (existing.any(
-      (item) =>
-          item.categoryId != editingId &&
-          item.name.toLowerCase() == category.name.toLowerCase(),
-    )) {
+    if (_categories.any((item) =>
+        item.categoryId != editingId &&
+        item.name.toLowerCase() == category.name.toLowerCase())) {
       throw StateError('Category name already exists.');
     }
   }

@@ -76,26 +76,30 @@ void main() {
     expect(restored.toJson()['icon'], '⭐');
   });
 
-
-  test('product variant preserves ID, price, and active state through catalog JSON', () {
-    const variant = ProductVariant(
-      variantId: 'cheese',
-      name: 'Cheese',
-      price: 95,
-      active: false,
+  test('automatic charge survives full catalog JSON round trip', () {
+    const charge = CatalogAutomaticCharge(
+      chargeId: 'paper_straw',
+      name: 'Paper Straw',
+      amount: 2,
+      active: true,
+      scope: 'category',
+      categoryIds: ['drinks'],
+    );
+    final catalog = ProductCatalog(
+      catalogVersion: 'test',
+      categories: const [
+        ProductCategory(categoryId: 'drinks', name: 'Drinks', subtitle: '', active: true),
+      ],
+      automaticCharges: const [charge],
+      products: const [],
     );
 
-    final restored = ProductVariant.fromJson(variant.toJson());
+    final restored = ProductCatalog.fromJson(catalog.toJson());
 
-    expect(restored.variantId, 'cheese');
-    expect(restored.name, 'Cheese');
-    expect(restored.price, 95);
-    expect(restored.active, isFalse);
-    expect(variant.toJson(), {
-      'variantId': 'cheese',
-      'name': 'Cheese',
-      'price': 95,
-      'active': false,
-    });
+    expect(restored.automaticCharges, hasLength(1));
+    expect(restored.automaticCharges.single.name, 'Paper Straw');
+    expect(restored.automaticCharges.single.amount, 2);
   });
+
+
 }

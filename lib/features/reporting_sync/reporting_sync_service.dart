@@ -3,13 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/config/supabase_config.dart';
 import '../kiosk/orders/kiosk_order.dart';
 import '../kiosk/orders/kiosk_order_repository.dart';
+import '../kiosk/models/kiosk_models.dart';
 import 'reporting_sync_result.dart';
 import 'reporting_sync_status.dart';
 import 'reporting_sync_status_store.dart';
 import 'reporting_transaction_mapper.dart';
-import 'reporting_restore_mapper.dart';
-import 'reporting_sync_audit.dart';
-import 'reporting_sync_operational_status.dart';
 import '../kiosk/settings/kiosk_settings_repository.dart';
 
 /// Manual, reporting-only synchronization service.
@@ -74,8 +72,7 @@ class ReportingSyncService {
   })  : _orderRepository = orderRepository ?? KioskOrderRepository(),
         _mapper = mapper ?? const ReportingTransactionMapper(),
         _statusStore = statusStore ?? ReportingSyncStatusStore(),
-        _settingsRepository = settingsRepository ?? KioskSettingsRepository(),
-        _auditStore = ReportingSyncAuditStore();
+        _settingsRepository = settingsRepository ?? KioskSettingsRepository();
 
   static const _rpcName = 'sync_kiosk_transaction';
 
@@ -83,7 +80,6 @@ class ReportingSyncService {
   final ReportingTransactionMapper _mapper;
   final ReportingSyncStatusStore _statusStore;
   final KioskSettingsRepository _settingsRepository;
-  final ReportingSyncAuditStore _auditStore;
 
   /// Syncs orders created on the kiosk's local calendar date.
   Future<ReportingSyncResult> syncToday({
@@ -204,8 +200,224 @@ class ReportingSyncService {
     );
   }
 
-  KioskOrder _restoreOrderFromDatabase(Map<String, dynamic> json) =>
-      ReportingRestoreMapper.fromDatabasePayload(json);
+  KioskOrder _restoreOrderFromDatabase(Map<String, dynamic> json) {
+    String textValue(
+      dynamic value, {
+      required String fallback,
+    }) {
+      final valueText = value?.toString().trim();
+      return valueText == null || valueText.isEmpty ? fallback : valueText;
+    }
+
+    int intValue(dynamic value, {int fallback = 0}) {
+      if (value is num) return value.round();
+      return int.tryParse(value?.toString() ?? '') ?? fallback;
+    }
+
+    DateTime dateValue(dynamic value) {
+      final parsed = DateTime.tryParse(value?.toString() ?? '');
+      return parsed ?? DateTime.now();
+    }
+
+    final externalId = textValue(
+      json['external_transaction_id'],
+      fallback: textValue(
+        json['id'],
+        fallback: 'RESTORED-${DateTime.now().microsecondsSinceEpoch}',
+      ),
+    );
+
+    final rawItems = json['items'] is List ? json['items'] as List : const [];
+    final restoredItems = <KioskCartItem>[];
+
+    for (var index = 0; index < rawItems.length; index++) {
+      final raw = rawItems[index];
+      if (raw is! Map) continue;
+      final item = Map<String, dynamic>.from(raw);
+
+      final productId = textValue(
+        item['product_id'],
+        fallback: 'RESTORED-$externalId-ITEM-$index',
+      );
+      final productName = textValue(
+        item['product_name'],
+        fallback: productId,
+      );
+      final productType = textValue(
+        item['product_type'],
+        fallback: 'drink',
+      );
+      final groupId = item['group_id']?.toString().trim();
+      final groupName = item['group_name']?.toString().trim();
+
+      KioskSize? size;
+      final sizeIdRaw = item['size_id']?.toString().trim();
+      final sizeNameRaw = item['size_name']?.toString().trim();
+      if ((sizeIdRaw?.isNotEmpty ?? false) ||
+          (sizeNameRaw?.isNotEmpty ?? false)) {
+        final sizeId = sizeIdRaw?.isNotEmpty == true
+            ? sizeIdRaw!
+            : 'RESTORED-$externalId-SIZE-$index';
+        final sizeName = sizeNameRaw?.isNotEmpty == true
+            ? sizeNameRaw!
+            : sizeId;
+        final volume = item['size_volume_ml'] == null
+            ? null
+            : intValue(item['size_volume_ml']);
+        size = KioskSize(
+          id: sizeId,
+          name: sizeName,
+          volumeMl: volume,
+          displayVolume: volume == null ? null : '${volume}ml',
+          price: null,
+        );
+      }
+
+      KioskVariant? variant;
+      final variantIdRaw = item['variant_id']?.toString().trim();
+      final variantNameRaw = item['variant_name']?.toString().trim();
+      if ((variantIdRaw?.isNotEmpty ?? false) ||
+          (variantNameRaw?.isNotEmpty ?? false)) {
+        final variantId = variantIdRaw?.isNotEmpty == true
+            ? variantIdRaw!
+            : 'RESTORED-$externalId-VARIANT-$index';
+        final variantName = variantNameRaw?.isNotEmpty == true
+            ? variantNameRaw!
+            : variantId;
+        variant = KioskVariant(
+          id: variantId,
+          name: variantName,
+          price: null,
+        );
+      }
+
+      final rawOptions = item['options'] is List
+          ? item['options'] as List
+          : const [];
+      final options = <KioskOption>[];
+      for (var optionIndex = 0;
+          optionIndex < rawOptions.length;
+          optionIndex++) {
+        final rawOption = rawOptions[optionIndex];
+        if (rawOption is! Map) continue;
+        final option = Map<String, dynamic>.from(rawOption);
+        final optionName = textValue(
+          option['option_name'],
+          fallback: 'Option ${optionIndex + 1}',
+        );
+        options.add(
+          KioskOption(
+            id: textValue(
+              option['option_id'],
+              fallback: 'RESTORED-$externalId-OPTION-$index-$optionIndex',
+            ),
+            name: optionName,
+            price: intValue(option['price']),
+            kitchenPrepared: option['kitchen_prepared'] as bool? ?? false,
+            automatic: option['automatic'] as bool? ?? false,
+          ),
+        );
+      }
+
+      // The reporting database stores the final item unit_price, while the
+      // kiosk model derives unitPrice from size/variant + options. Assign the
+      // remaining base price to the selected size (or variant) so restoration
+      // preserves the original transaction total.
+      final storedUnitPrice = intValue(item['unit_price']);
+      final optionTotal = options.fold<int>(
+        0,
+        (sum, option) => sum + option.price,
+      );
+      final basePrice = storedUnitPrice - optionTotal;
+
+      if (size != null) {
+        size = KioskSize(
+          id: size.id,
+          name: size.name,
+          volumeMl: size.volumeMl,
+          displayVolume: size.displayVolume,
+          price: basePrice,
+        );
+      } else if (variant != null) {
+        variant = KioskVariant(
+          id: variant.id,
+          name: variant.name,
+          price: basePrice,
+        );
+      }
+
+      final category = KioskCategory.fromId(
+            item['category']?.toString() ?? '',
+          ) ??
+          KioskCategory.accessories;
+
+      final temperature = item['drink_temperature']?.toString().trim();
+      final normalizedTemperature =
+          temperature == 'hot' || temperature == 'iced'
+              ? temperature
+              : null;
+
+      final product = KioskProduct(
+        id: productId,
+        name: productName,
+        price: size == null && variant == null ? storedUnitPrice : null,
+        category: category,
+        groupId: groupId?.isEmpty == true ? null : groupId,
+        groupName: groupName?.isEmpty == true ? null : groupName,
+        productType: productType,
+        drinkTemperature: normalizedTemperature,
+        kitchenPrepared: item['kitchen_prepared'] as bool? ?? false,
+        sizes: size == null ? const [] : [size],
+        variants: variant == null ? const [] : [variant],
+      );
+
+      restoredItems.add(
+        KioskCartItem(
+          product: product,
+          size: size,
+          variant: variant,
+          quantity: intValue(item['quantity'], fallback: 1),
+          options: List.unmodifiable(options),
+          drinkTemperature: normalizedTemperature,
+        ),
+      );
+    }
+
+    return KioskOrder(
+      id: externalId,
+      orderNumber: textValue(
+        json['order_number'],
+        fallback: externalId,
+      ),
+      createdAt: dateValue(json['transaction_date'] ?? json['created_at']),
+      orderType: textValue(
+        json['order_type'],
+        fallback: 'Take Out',
+      ),
+      paymentMethod: textValue(
+        json['payment_method'],
+        fallback: 'Pay at Counter',
+      ),
+      paymentStatus: textValue(
+        json['payment_status'],
+        fallback: 'pending',
+      ),
+      orderMode: textValue(
+        json['order_mode'],
+        fallback: 'Customer',
+      ),
+      status: KioskOrderStatusX.fromValue(
+        textValue(json['status'], fallback: 'pending'),
+      ),
+      cancellationReason: json['cancellation_reason']?.toString(),
+      modificationReason: json['modification_reason']?.toString(),
+      modifiedAt: json['modified_at'] == null
+          ? null
+          : DateTime.tryParse(json['modified_at'].toString()),
+      items: List.unmodifiable(restoredItems),
+      total: intValue(json['total']),
+    );
+  }
 
   /// Returns local reporting sync progress without changing any kiosk order.
   Future<ReportingSyncProgress> getTodayProgress({DateTime? date}) async {
@@ -218,20 +430,6 @@ class ReportingSyncService {
     final orders = await _orderRepository.getOrders();
     return _statusStore.getProgress(orders);
   }
-
-  /// Returns the combined local reporting sync status and latest audit entry.
-  Future<ReportingSyncOperationalStatus> getOperationalStatus() async {
-    final orders = await _orderRepository.getOrders();
-    final progress = await _statusStore.getProgress(orders);
-    final latestAudit = await _auditStore.latest();
-    return ReportingSyncOperationalStatus.from(
-      progress: progress,
-      latestAudit: latestAudit,
-    );
-  }
-
-  /// Returns the local audit history for the explicit reporting sync action.
-  Future<List<ReportingSyncAudit>> getAuditHistory() => _auditStore.history();
 
   Future<ReportingSyncResult> _syncPendingOrders(
     List<KioskOrder> orders, {
@@ -252,7 +450,6 @@ class ReportingSyncService {
     final settings = await _settingsRepository.load();
     _validateConfiguration(settings);
 
-    final startedAt = DateTime.now();
     var succeeded = 0;
     final failures = <ReportingSyncFailure>[];
 
@@ -290,77 +487,11 @@ class ReportingSyncService {
       }
     }
 
-    final result = ReportingSyncResult(
+    return ReportingSyncResult(
       attempted: orders.length,
       succeeded: succeeded,
       failures: List.unmodifiable(failures),
     );
-
-    await _recordAudit(
-      startedAt: startedAt,
-      result: result,
-      settings: settings,
-    );
-
-    return result;
-  }
-
-  Future<void> _recordAudit({
-    required DateTime startedAt,
-    required ReportingSyncResult result,
-    required KioskSettings settings,
-  }) async {
-    final completedAt = DateTime.now();
-    final audit = ReportingSyncAudit(
-      id: 'sync-${completedAt.toUtc().microsecondsSinceEpoch}',
-      startedAt: startedAt,
-      completedAt: completedAt,
-      attempted: result.attempted,
-      succeeded: result.succeeded,
-      failed: result.failed,
-      failures: result.failures
-          .map(
-            (failure) => ReportingSyncAuditFailure(
-              externalTransactionId: failure.externalTransactionId,
-              message: failure.message,
-            ),
-          )
-          .toList(growable: false),
-    );
-
-    try {
-      await _auditStore.record(audit);
-    } catch (_) {
-      // Audit metadata must never turn a completed reporting sync into a
-      // failure. The transaction RPC result remains authoritative.
-    }
-
-    try {
-      await Supabase.instance.client.rpc(
-        'record_kiosk_reporting_sync_log',
-        params: {
-          'p_store_id': settings.storeId.trim(),
-          'p_device_code': settings.deviceId.trim(),
-          'p_started_at': startedAt.toUtc().toIso8601String(),
-          'p_completed_at': completedAt.toUtc().toIso8601String(),
-          'p_attempted': result.attempted,
-          'p_succeeded': result.succeeded,
-          'p_failed': result.failed,
-          'p_failures': result.failures
-              .map(
-                (failure) => {
-                  'externalTransactionId': failure.externalTransactionId,
-                  'orderNumber': failure.orderNumber,
-                  'message': failure.message,
-                },
-              )
-              .toList(growable: false),
-        },
-      );
-    } catch (_) {
-      // Server-side audit is best effort. Never hide or reverse the actual
-      // transaction synchronization result because an audit write failed.
-    }
   }
 
   Future<String> _resolveDeviceUuid({

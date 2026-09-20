@@ -8,8 +8,6 @@ import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import 'store_catalog_master_service.dart';
 import 'catalog_sync_version_guard.dart';
-import 'catalog_sync_status.dart';
-import 'catalog_local_master_migration.dart';
 
 class StoreCatalogSyncResult {
   const StoreCatalogSyncResult({
@@ -55,14 +53,6 @@ class StoreCatalogSyncService {
   final ProductCatalogRepository _repository;
   final KioskSettingsRepository _settingsRepository;
   final StoreCatalogMasterService _masterService;
-
-  /// Clears the kiosk's remembered master version without changing the local
-  /// catalog. This is used when a device is re-provisioned so it cannot
-  /// publish an old version until it has refreshed from the current master.
-  Future<void> clearLocalMasterVersion() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_versionKey);
-  }
 
   Future<String?> localMasterVersion() async {
     final prefs = await SharedPreferences.getInstance();
@@ -181,33 +171,25 @@ class StoreCatalogSyncService {
       catalogJson,
       source: 'store catalog master',
     );
-    final authoritativeVersion =
-        CatalogSyncVersionGuard.ensureCatalogVersionMatchesMaster(
-      catalogVersion: catalog.catalogVersion,
-      masterVersion: masterVersion,
-    );
-    final authoritativeCatalog = catalog.copyWith(
-      catalogVersion: authoritativeVersion,
-    );
-    ProductCatalogRepository.validate(authoritativeCatalog);
+    ProductCatalogRepository.validate(catalog);
 
     // Save a rollback point before replacing the operational local copy.
     final current = await _repository.load();
     await _repository.saveImportRecoveryBackup(current);
     await _repository.saveCatalog(
-      authoritativeCatalog,
+      catalog,
       auditAction: 'Refresh catalog from store master',
     );
 
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_versionKey, authoritativeVersion);
-    await _reportSuccessfulSync(settings, authoritativeVersion);
+    await prefs.setString(_versionKey, catalog.catalogVersion);
+    await _reportSuccessfulSync(settings, catalog.catalogVersion);
 
     return StoreCatalogSyncResult(
-      catalogVersion: authoritativeVersion,
-      categoryCount: authoritativeCatalog.categories.length,
-      productCount: authoritativeCatalog.products.length,
-      optionDefinitionCount: authoritativeCatalog.optionDefinitions.length,
+      catalogVersion: catalog.catalogVersion,
+      categoryCount: catalog.categories.length,
+      productCount: catalog.products.length,
+      optionDefinitionCount: catalog.optionDefinitions.length,
       updated: true,
     );
   }
@@ -229,29 +211,13 @@ class StoreCatalogSyncService {
       source: 'local kiosk catalog',
     );
     ProductCatalogRepository.validate(catalog);
-    CatalogLocalMasterMigration.ensureHasProducts(catalog);
 
-    final masterVersion = await getMasterVersion();
-    final localVersion = CatalogSyncVersionGuard.ensureLocalMatchesMaster(
-      localVersion: await localMasterVersion(),
+    final masterVersion = (await getMasterVersion())!;
+    final localVersion = await localMasterVersion();
+    CatalogSyncVersionGuard.ensureLocalMatchesMaster(
+      localVersion: localVersion,
       masterVersion: masterVersion,
     );
-
-    // A matching synchronization version does not prove the local catalog is
-    // identical: an explicit local edit can retain the last accepted version.
-    // Avoid an unnecessary master write only when the complete catalog data is
-    // actually identical.
-    final master = await _masterService.loadMasterCatalog();
-    if (CatalogLocalMasterMigration.catalogsMatch(catalog, master)) {
-      await _reportSuccessfulSync(settings, localVersion);
-      return StoreCatalogSyncResult(
-        catalogVersion: master.catalogVersion,
-        categoryCount: master.categories.length,
-        productCount: master.products.length,
-        optionDefinitionCount: master.optionDefinitions.length,
-        updated: false,
-      );
-    }
 
     final accepted = await _masterService.publishCatalog(
       catalog,
@@ -268,49 +234,6 @@ class StoreCatalogSyncService {
     );
   }
 
-  Future<CatalogSyncStatusSnapshot> loadCatalogSyncStatus() async {
-    final localVersion = await localMasterVersion();
-
-    try {
-      final settings = await _settingsRepository.load();
-      _validateSettings(settings);
-
-      final masterVersion = await getMasterVersion(allowMissing: true);
-      if (masterVersion == null) {
-        return CatalogSyncStatusResolver.resolve(
-          masterAvailable: true,
-          masterExists: false,
-          localVersion: localVersion,
-          masterVersion: null,
-          catalogsMatch: false,
-        );
-      }
-
-      final master = await _masterService.loadMasterCatalog();
-      final local = await _repository.load();
-      final catalogsMatch = CatalogLocalMasterMigration.catalogsMatch(
-        local,
-        master,
-      );
-
-      return CatalogSyncStatusResolver.resolve(
-        masterAvailable: true,
-        masterExists: true,
-        localVersion: localVersion,
-        masterVersion: masterVersion,
-        catalogsMatch: catalogsMatch,
-      );
-    } catch (_) {
-      return CatalogSyncStatusResolver.resolve(
-        masterAvailable: false,
-        masterExists: false,
-        localVersion: localVersion,
-        masterVersion: null,
-        catalogsMatch: false,
-      );
-    }
-  }
-
   Future<bool> masterCatalogExists() async {
     return (await getMasterVersion(allowMissing: true)) != null;
   }
@@ -323,7 +246,6 @@ class StoreCatalogSyncService {
     _validateSettings(settings);
     final catalog = await _repository.load();
     ProductCatalogRepository.validate(catalog);
-    CatalogLocalMasterMigration.ensureHasProducts(catalog);
 
     final result = await Supabase.instance.client.rpc(
       'initialize_store_catalog_from_kiosk',
@@ -339,25 +261,15 @@ class StoreCatalogSyncService {
       throw StateError('The database did not return a catalog version.');
     }
 
-    final acceptedCatalog = CatalogSyncVersionGuard.withAuthoritativeVersion(
-      catalog,
-      version,
-    );
-    ProductCatalogRepository.validate(acceptedCatalog);
-    await _repository.saveCatalog(
-      acceptedCatalog,
-      auditAction: 'Initialize local catalog from store master',
-    );
-
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_versionKey, version);
     await _reportSuccessfulSync(settings, version);
 
     return StoreCatalogSyncResult(
-      catalogVersion: acceptedCatalog.catalogVersion,
-      categoryCount: acceptedCatalog.categories.length,
-      productCount: acceptedCatalog.products.length,
-      optionDefinitionCount: acceptedCatalog.optionDefinitions.length,
+      catalogVersion: version,
+      categoryCount: catalog.categories.length,
+      productCount: catalog.products.length,
+      optionDefinitionCount: catalog.optionDefinitions.length,
       updated: true,
     );
   }

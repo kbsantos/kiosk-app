@@ -169,17 +169,42 @@ class KioskReceiptPage extends StatelessWidget {
                               ),
                             ),
                           ),
-                        if (item.options.isNotEmpty)
+                        if (item.options.any((o) => !o.automatic))
                           Padding(
                             padding: const EdgeInsets.only(top: 3),
                             child: Text(
-                              item.options.map((o) => o.name).join(' • '),
+                              item.options.where((o) => !o.automatic).map((o) => o.name).join(' • '),
                               style: const TextStyle(
                                 color: Colors.black54,
                                 fontSize: 12,
                               ),
                             ),
                           ),
+                        ...item.options.where((o) => o.automatic).map(
+                              (option) => Padding(
+                                padding: const EdgeInsets.only(top: 3),
+                                child: Row(
+                                  children: [
+                                    const Expanded(
+                                      child: Text(
+                                        'Automatic charge',
+                                        style: TextStyle(
+                                          color: Colors.black54,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                    Text(
+                                      '${option.name} + ${KioskCurrency.format(option.price)}',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                       ],
                     ),
                   ),

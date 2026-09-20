@@ -233,27 +233,69 @@ Future<void> addKioskProductToCart(
     if (selectedVariant == null) return;
   }
 
-  // Product options are product-specific and must be honored regardless of
-  // category or product type. This allows food such as burgers to use the
-  // same Takeout/Dine In/add-on flow as drinks and rice meals.
-  if (product.options.isNotEmpty) {
-    final options = await showModalBottomSheet<List<KioskOption>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _ProductAddOnsSheet(product: product),
-    );
+  // Automatic charges are mandatory catalog rules. They are included in
+  // every matching cart item and never appear in the customer add-on sheet.
+  // Auto-apply add-ons remain separate: they are selected by default and may
+  // still be removed by the customer.
+  final automaticOptions = product.options
+      .where((option) => option.automatic)
+      .map(
+        (option) => KioskOption(
+          id: option.id,
+          name: option.name,
+          price: option.price,
+          kitchenPrepared: option.kitchenPrepared,
+          automatic: true,
+        ),
+      )
+      .toList(growable: false);
 
-    if (!context.mounted) return;
-    if (options == null) return;
+  final customerOptions = product.options
+      .where((option) => !option.automatic)
+      .toList(growable: false);
+
+  final autoAppliedOptions = customerOptions
+      .where((option) => option.autoApply)
+      .map(
+        (option) => KioskOption(
+          id: option.id,
+          name: option.name,
+          price: option.price,
+          kitchenPrepared: option.kitchenPrepared,
+        ),
+      )
+      .toList(growable: false);
+  final selectableOptions = customerOptions
+      .where((option) => !option.autoApply)
+      .toList(growable: false);
+
+  if (selectableOptions.isEmpty) {
     if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
-      cart.add(product,
-          size: selectedSize, variant: selectedVariant, options: options);
+      cart.add(
+        product,
+        size: selectedSize,
+        variant: selectedVariant,
+        options: [...automaticOptions, ...autoAppliedOptions],
+      );
     }
     return;
   }
 
+  final options = await showModalBottomSheet<List<KioskOption>>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _ProductAddOnsSheet(product: product),
+  );
+
+  if (!context.mounted) return;
+  if (options == null) return;
   if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
-    cart.add(product, size: selectedSize, variant: selectedVariant);
+    cart.add(
+      product,
+      size: selectedSize,
+      variant: selectedVariant,
+      options: [...automaticOptions, ...options],
+    );
   }
 }
 
@@ -360,12 +402,22 @@ class _ProductAddOnsSheet extends StatefulWidget {
 }
 
 class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
-  final Set<String> _selected = {};
+  late final Set<String> _selected;
   bool _showAddOns = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.product.options
+        .where((option) => option.autoApply)
+        .map((option) => option.id)
+        .toSet();
+  }
 
   @override
   Widget build(BuildContext context) {
     final options = widget.product.options
+        .where((option) => !option.automatic)
         .map(
           (option) => KioskOption(
             id: option.id,

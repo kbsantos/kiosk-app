@@ -265,7 +265,7 @@ class KioskReceiptPrinter {
     for (final item in baristaItems) {
       productionHeight += 18;
       if (item.variant != null) productionHeight += 8;
-      productionHeight += item.options.length * 8;
+      productionHeight += item.options.where((o) => !o.automatic).length * 8;
     }
     for (final item in kitchenItems) {
       productionHeight += 18;
@@ -373,11 +373,27 @@ class KioskReceiptPrinter {
                           '  ${item.variant!.name}',
                           style: const pw.TextStyle(fontSize: 8),
                         ),
-                      if (item.options.isNotEmpty)
+                      if (item.options.any((o) => !o.automatic))
                         pw.Text(
-                          '  ${item.options.map((o) => o.name).join(' • ')}',
+                          '  ${item.options.where((o) => !o.automatic).map((o) => o.name).join(' • ')}',
                           style: const pw.TextStyle(fontSize: 8),
                         ),
+                      ...item.options.where((o) => o.automatic).map(
+                            (option) => pw.Row(
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    '  + ${option.name} (automatic charge)',
+                                    style: const pw.TextStyle(fontSize: 8),
+                                  ),
+                                ),
+                                pw.Text(
+                                  KioskCurrency.formatCode(option.price),
+                                  style: const pw.TextStyle(fontSize: 8),
+                                ),
+                              ],
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -447,7 +463,7 @@ class KioskReceiptPrinter {
                             '  ${entry.value.variant!.name}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
-                        ...entry.value.options.map(
+                        ...entry.value.options.where((o) => !o.automatic).map(
                           (option) => pw.Text(
                             '  + ${option.name}',
                             style: const pw.TextStyle(fontSize: 8),

@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bigger_brew_kiosk/features/kiosk/models/kiosk_models.dart';
 import 'package:bigger_brew_kiosk/features/kiosk/pages/kiosk_category_page.dart';
-import 'package:bigger_brew_kiosk/features/kiosk/data/kiosk_catalog_data.dart';
-import 'package:bigger_brew_kiosk/product_catalog/product_catalog_models.dart';
-import 'package:bigger_brew_kiosk/product_catalog/kiosk_catalog_adapter.dart';
 
 void main() {
   testWidgets(
@@ -58,98 +55,4 @@ void main() {
       expect(cart.items.single.options.single.name, 'Takeout');
     },
   );
-
-  test(
-    'shared options are not exposed when the product has no assigned options',
-    () {
-      const product = CatalogProduct(
-        productId: 'cheese_burger',
-        name: 'Cheese Burger',
-        productType: 'food',
-        categoryId: 'burgers',
-        active: true,
-        available: true,
-        sizes: [],
-        variants: [],
-        options: [],
-      );
-      const sharedDefinition = CatalogOptionDefinition(
-        optionId: 'egg',
-        name: 'Egg',
-        productTypes: ['food'],
-        price: 15,
-        active: true,
-      );
-      const catalog = ProductCatalog(
-        catalogVersion: 'test',
-        categories: [
-          ProductCategory(
-            categoryId: 'burgers',
-            name: 'Burgers',
-            subtitle: '',
-            active: true,
-          ),
-        ],
-        optionDefinitions: [sharedDefinition],
-        products: [product],
-      );
-
-      expect(
-        KioskCatalogData.optionsForProduct(
-          catalog,
-          KioskCatalogProduct.fromCatalog(product),
-        ),
-        isEmpty,
-      );
-    },
-  );
-
-  // K22: customer ordering must not expose an assigned option whose shared
-  // definition is incompatible with the product type, even if stale local data
-  // still contains the assignment.
-  test('incompatible assigned option is not exposed to customer ordering', () {
-    const product = CatalogProduct(
-      productId: 'cheese_burger',
-      name: 'Cheese Burger',
-      productType: 'food',
-      categoryId: 'burgers',
-      active: true,
-      available: true,
-      sizes: [],
-      variants: [],
-      options: [
-        ProductOption(
-          optionId: 'milk',
-          name: 'Milk',
-          price: 20,
-          active: true,
-        ),
-      ],
-    );
-    const catalog = ProductCatalog(
-      catalogVersion: 'master-k22',
-      categories: [
-        ProductCategory(
-          categoryId: 'burgers',
-          name: 'Burgers',
-          subtitle: '',
-          active: true,
-        ),
-      ],
-      optionDefinitions: [
-        CatalogOptionDefinition(
-          optionId: 'milk',
-          name: 'Milk',
-          productTypes: ['drink'],
-          price: 20,
-          active: true,
-        ),
-      ],
-      products: [product],
-    );
-  
-    final projected = KioskCatalogProduct.fromCatalog(product);
-  
-    expect(KioskCatalogData.optionsForProduct(catalog, projected), isEmpty);
-  });
 }

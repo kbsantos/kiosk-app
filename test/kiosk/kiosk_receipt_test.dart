@@ -51,4 +51,31 @@ void main() {
     expect(order.paymentStatus, 'paid');
     expect(order.total, 79);
   });
+
+test('automatic charge is separated from selectable add-ons in item pricing', () {
+  const product = KioskProduct(
+    id: 'latte',
+    name: 'Latte',
+    price: 120,
+    category: KioskCategory.coffee,
+  );
+  const addOn = KioskOption(id: 'pearl', name: 'Pearl', price: 10);
+  const charge = KioskOption(
+    id: 'paper_straw',
+    name: 'Paper Straw',
+    price: 2,
+    automatic: true,
+  );
+
+  const item = KioskCartItem(
+    product: product,
+    options: [addOn, charge],
+    quantity: 2,
+  );
+
+  expect(item.selectableOptionTotal, 10);
+  expect(item.automaticChargeTotal, 2);
+  expect(item.unitPrice, 132);
+  expect(item.total, 264);
+});
 }

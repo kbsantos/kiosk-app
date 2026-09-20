@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import 'catalog_change_guard.dart';
-import 'catalog_recovery_store_master.dart';
 import 'catalog_permissions.dart';
 import '../kiosk/staff_access.dart';
 
@@ -22,7 +21,6 @@ class CatalogBackupRestorePage extends StatefulWidget {
 
 class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
   final _repository = const ProductCatalogRepository();
-  final _recovery = CatalogRecoveryStoreMaster();
   ProductCatalog? _catalog;
   ProductCatalog? _backup;
   String? _backupTime;
@@ -100,11 +98,11 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
       context,
       title: 'RESTORE CATALOG BACKUP?',
       message:
-          'The saved catalog snapshot will be published to Store Master and then become the kiosk catalog. The bundled commercial catalog asset will not be modified.',
+          'The current local catalog overrides will be replaced by the saved backup. The bundled commercial catalog will not be changed.',
       confirmLabel: 'RESTORE BACKUP',
     );
     if (!confirmed) return;
-    await _run(() async { await _recovery.restoreSnapshot(backup, auditAction: 'Restore catalog backup to store master'); });
+    await _run(() => _repository.saveCatalog(backup));
   }
 
   Future<void> _rollbackLastImport() async {
@@ -114,12 +112,19 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
       context,
       title: 'ROLL BACK LAST CATALOG IMPORT?',
       message:
-          'The exact catalog state captured before the most recent accepted import will be published to Store Master. Changes made after that import will be replaced. The bundled commercial catalog asset will not be modified.',
+          'The kiosk will restore the exact catalog state captured immediately before the most recent accepted catalog import. Changes made after that import will be replaced. The bundled commercial catalog will not be changed.',
       confirmLabel: 'ROLL BACK IMPORT',
     );
     if (!confirmed) return;
 
-    await _run(() async { await _recovery.rollbackLastImport(recovery); });
+    await _run(() async {
+      // Preserve the current state as the general backup before recovery.
+      final current = await _repository.load();
+      await _repository.saveBackup(current);
+      await _repository.saveCatalog(recovery,
+          auditAction: 'Rollback last catalog import');
+      await _repository.clearImportRecoveryBackup();
+    });
   }
 
   Future<void> _restoreFromClipboard() async {
@@ -146,11 +151,11 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
       context,
       title: 'RESTORE FROM CLIPBOARD?',
       message:
-          'The catalog JSON currently on the clipboard will be validated and published to Store Master. The accepted catalog will then become the kiosk catalog.',
+          'This replaces the current local catalog overrides with the catalog JSON currently on the clipboard.',
       confirmLabel: 'RESTORE',
     );
     if (!confirmed) return;
-    await _run(() async { await _recovery.restoreSnapshot(parsed, auditAction: 'Restore catalog clipboard snapshot to store master'); });
+    await _run(() => _repository.saveCatalog(parsed));
   }
 
   Future<void> _resetToBundled() async {
@@ -163,11 +168,11 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
       context,
       title: 'RESET TO BUNDLED CATALOG?',
       message:
-          'The bundled commercial catalog will be published to Store Master and will become the kiosk catalog. Create a backup first if you may need to recover the current catalog.',
+          'All local category, product, and option overrides will be removed. The kiosk will return to the bundled commercial catalog baseline. Create a backup first if you may need to recover these edits.',
       confirmLabel: 'RESET CATALOG',
     );
     if (!confirmed) return;
-    await _run(() async { await _recovery.resetToBundled(); });
+    await _run(_repository.clearAllOverrides);
   }
 
   String _timeLabel() {
@@ -229,7 +234,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
                     enabled: _backup != null || _catalog != null),
                 _action(
                     'Restore Local Backup',
-                    'Manager only: publish the most recently saved recovery snapshot to Store Master.',
+                    'Manager only: restore the most recently saved local recovery snapshot.',
                     Icons.restore,
                     _restoreLocal,
                     enabled: _backup != null &&
@@ -237,7 +242,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
                             widget.role, CatalogPermission.restoreBackup)),
                 _action(
                     'Restore From Clipboard',
-                    'Manager only: validate and publish a Bigger Brew catalog JSON snapshot to Store Master.',
+                    'Manager only: restore a Bigger Brew catalog JSON backup.',
                     Icons.input,
                     _restoreFromClipboard,
                     enabled: StaffAccessPolicy.can(
@@ -254,7 +259,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
                 const SizedBox(height: 10),
                 _action(
                     'Reset To Bundled Catalog',
-                    'Manager only: publish the bundled commercial catalog as the new Store Master baseline.',
+                    'Manager only: remove all local overrides and return to the bundled commercial baseline.',
                     Icons.restart_alt,
                     _resetToBundled,
                     enabled: StaffAccessPolicy.can(
@@ -265,7 +270,7 @@ class _CatalogBackupRestorePageState extends State<CatalogBackupRestorePage> {
                   child: Padding(
                     padding: const EdgeInsets.all(18),
                     child: Text(
-                        'Safety rule: recovery actions are Store Master mutations with optimistic version checks. The bundled product catalog asset remains read-only.',
+                        'Safety rule: backup and restore operate on local catalog overrides only. The bundled product catalog asset is never overwritten.',
                         style: TextStyle(color: Colors.grey.shade800)),
                   ),
                 ),

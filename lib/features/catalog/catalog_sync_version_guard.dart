@@ -1,13 +1,11 @@
-import '../../product_catalog/product_catalog_models.dart';
-
 class CatalogSyncVersionGuard {
   const CatalogSyncVersionGuard._();
 
-  static String ensureLocalMatchesMaster({
+  static void ensureLocalMatchesMaster({
     required String? localVersion,
-    required String? masterVersion,
+    required String masterVersion,
   }) {
-    final master = masterVersion?.trim() ?? '';
+    final master = masterVersion.trim();
     if (master.isEmpty) {
       throw StateError('The store catalog master has no catalog version.');
     }
@@ -27,44 +25,5 @@ class CatalogSyncVersionGuard {
         'Master version: $master; kiosk version: $local.',
       );
     }
-
-    return local;
-  }
-
-  static ProductCatalog withAuthoritativeVersion(
-    ProductCatalog catalog,
-    String masterVersion,
-  ) {
-    final version = ensureCatalogVersionMatchesMaster(
-      catalogVersion: masterVersion,
-      masterVersion: masterVersion,
-    );
-    return catalog.copyWith(catalogVersion: version);
-  }
-
-  static String ensureCatalogVersionMatchesMaster({
-    required String? catalogVersion,
-    required String? masterVersion,
-  }) {
-    final master = masterVersion?.trim() ?? '';
-    if (master.isEmpty) {
-      throw StateError('The store catalog master has no catalog version.');
-    }
-
-    final catalog = catalogVersion?.trim() ?? '';
-    if (catalog.isEmpty) {
-      throw StateError(
-        'The store catalog master returned a catalog without a version.',
-      );
-    }
-
-    if (catalog != master) {
-      throw StateError(
-        'The store catalog payload version does not match the master version. '
-        'Catalog version: $catalog; master version: $master.',
-      );
-    }
-
-    return master;
   }
 }

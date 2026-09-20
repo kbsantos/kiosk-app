@@ -8,7 +8,6 @@ import '../../product_catalog/product_catalog_models.dart';
 import '../../product_catalog/product_catalog_repository.dart';
 import '../../product_catalog/catalog_schema_guard.dart';
 import 'catalog_change_guard.dart';
-import 'catalog_recovery_store_master.dart';
 import 'catalog_permissions.dart';
 import '../kiosk/staff_access.dart';
 
@@ -26,7 +25,6 @@ class _CatalogFileImportExportPageState
     extends State<CatalogFileImportExportPage> {
   static const _maxImportBytes = 2 * 1024 * 1024;
   final _repository = const ProductCatalogRepository();
-  final _recovery = CatalogRecoveryStoreMaster();
   ProductCatalog? _catalog;
   bool _busy = false;
   String? _lastFile;
@@ -178,13 +176,13 @@ class _CatalogFileImportExportPageState
       }
 
       final current = _catalog;
-      if (current == null) {
-        throw StateError('The current kiosk catalog is not available.');
+      if (current != null) {
+        // Keep a dedicated rollback point for the most recent accepted import.
+        await _repository.saveImportRecoveryBackup(current);
+        await _repository.saveBackup(current);
       }
-      await _recovery.applyImportedCatalog(
-        currentLocal: current,
-        mergedCatalog: merged,
-      );
+      await _repository.saveCatalog(merged,
+          auditAction: 'Selective catalog import');
       await _load();
       if (mounted) {
         setState(() => _lastFile = file.name);

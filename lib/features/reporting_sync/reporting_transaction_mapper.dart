@@ -37,6 +37,7 @@ class ReportingTransactionMapper {
                 'option_name': option.name,
                 'price': option.price,
                 'kitchen_prepared': option.kitchenPrepared,
+                'automatic': option.automatic,
               },
             )
             .toList(growable: false),

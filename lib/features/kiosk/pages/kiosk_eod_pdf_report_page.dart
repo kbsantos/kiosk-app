@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 
 import '../orders/kiosk_order.dart';
 import '../models/kiosk_models.dart';
+import '../reporting/kiosk_automatic_charge_summary.dart';
 
 class KioskEodPdfReportPage extends StatelessWidget {
   const KioskEodPdfReportPage({
@@ -37,6 +38,8 @@ class KioskEodPdfReportPage extends StatelessWidget {
       .where((o) => o.paymentStatus != 'paid')
       .fold(0, (sum, o) => sum + o.total);
   int get refunds => refunded.fold(0, (sum, o) => sum + o.total);
+  KioskAutomaticChargeSummary get automaticChargeSummary =>
+      KioskAutomaticChargeSummary.fromOrders(completed);
 
   @override
   Widget build(BuildContext context) {
@@ -112,6 +115,9 @@ class KioskEodPdfReportPage extends StatelessWidget {
           _section('ACCESSORIES DAILY SUMMARY'),
           _accessoriesTable(),
           pw.SizedBox(height: 16),
+          _section('AUTOMATIC CHARGES — SALES'),
+          _automaticChargesTable(),
+          pw.SizedBox(height: 16),
           _section('ORDER DETAILS'),
           _ordersTable(),
         ],
@@ -161,23 +167,28 @@ class KioskEodPdfReportPage extends StatelessWidget {
             style: pw.TextStyle(fontSize: 8, fontWeight: pw.FontWeight.bold)),
       );
 
-  pw.Widget _summaryTable() => pw.Table(
-        border:
-            pw.TableBorder.all(color: PdfColor.fromHex('#E4DED5'), width: .5),
-        columnWidths: {
-          0: const pw.FlexColumnWidth(2),
-          1: const pw.FlexColumnWidth(1),
-          2: const pw.FlexColumnWidth(2),
-          3: const pw.FlexColumnWidth(1)
-        },
-        children: [
-          _row('COMPLETED ORDERS', '${completed.length}', 'ITEMS SOLD',
-              '$itemsSold'),
-          _row('COMPLETED SALES', _peso(sales), 'PAYMENT PENDING',
-              _peso(pending)),
-          _row('REFUNDS', _peso(refunds), 'TOTAL ORDERS', '${orders.length}'),
-        ],
-      );
+  pw.Widget _summaryTable() {
+    final chargeAmount = automaticChargeSummary.totalAmount;
+    return pw.Table(
+      border:
+          pw.TableBorder.all(color: PdfColor.fromHex('#E4DED5'), width: .5),
+      columnWidths: {
+        0: const pw.FlexColumnWidth(2),
+        1: const pw.FlexColumnWidth(1),
+        2: const pw.FlexColumnWidth(2),
+        3: const pw.FlexColumnWidth(1)
+      },
+      children: [
+        _row('COMPLETED ORDERS', '${completed.length}', 'ITEMS SOLD',
+            '$itemsSold'),
+        _row('COMPLETED SALES', _peso(sales), 'PAYMENT PENDING',
+            _peso(pending)),
+        _row('AUTOMATIC CHARGES', _peso(chargeAmount),
+            'SALES EXCL. AUTOMATIC CHARGES', _peso(sales - chargeAmount)),
+        _row('REFUNDS', _peso(refunds), 'TOTAL ORDERS', '${orders.length}'),
+      ],
+    );
+  }
 
   pw.TableRow _row(String a, String av, String b, String bv) =>
       pw.TableRow(children: [
@@ -210,6 +221,42 @@ class KioskEodPdfReportPage extends StatelessWidget {
           ]);
         }),
       ],
+    );
+  }
+
+  pw.Widget _automaticChargesTable() {
+    final summary = automaticChargeSummary;
+    if (summary.lines.isEmpty) return _empty('No automatic charges applied.');
+
+    final rows = <pw.TableRow>[
+      _headerRow(['Charge', 'Qty', 'Sales']),
+    ];
+
+    for (final line in summary.lines) {
+      rows.add(pw.TableRow(children: [
+        _cell(line.name, bold: true),
+        _cell('${line.quantity}', align: pw.TextAlign.right),
+        _cell(_peso(line.amount), align: pw.TextAlign.right),
+      ]));
+    }
+
+    rows.add(pw.TableRow(children: [
+      _cell('TOTAL AUTOMATIC CHARGES', bold: true),
+      _cell('${summary.totalQuantity}', bold: true, align: pw.TextAlign.right),
+      _cell(_peso(summary.totalAmount), bold: true, align: pw.TextAlign.right),
+    ]));
+
+    return pw.Table(
+      border: pw.TableBorder.all(
+        color: PdfColor.fromHex('#D8D1C7'),
+        width: .4,
+      ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(3.2),
+        1: pw.FlexColumnWidth(1),
+        2: pw.FlexColumnWidth(1.3),
+      },
+      children: rows,
     );
   }
 
@@ -570,3 +617,6 @@ class KioskEodPdfReportPage extends StatelessWidget {
   String _safeDate() =>
       '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 }
+
+
+

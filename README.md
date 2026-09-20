@@ -36,21 +36,3 @@ that matches the current database version; otherwise the operation stops and ask
 staff to refresh before publishing. The database RPC performs the final atomic
 optimistic-lock check, and the local kiosk catalog/version is updated only after
 the master accepts the write.
-
-## K31 Checkpoint
-
-K31 adds non-destructive multi-kiosk device identity verification for recovery workflows. See `readme/K31_MULTI_KIOSK_OPERATIONAL_RECOVERY.md`.
-
-
-## K37
-
-Inventory stock management and low-stock monitoring are implemented as a local kiosk projection; the separate inventory system remains authoritative. See `readme/K37_INVENTORY_STOCK_MANAGEMENT.md`.
-
-## K39 — Inventory Movement Synchronization & Operational Audit
-
-K39 adds explicit manual synchronization of the local inventory movement ledger to Supabase with idempotent local movement IDs, per-movement acknowledgements, retry-safe failures, and Administration Sync visibility. Local stock remains authoritative for kiosk operations and no background sync is introduced.
-
-
-## Current development checkpoint
-
-K41 — Reporting & Analytics Expansion is implemented from the validated K40.2 baseline and is awaiting local Flutter verification.

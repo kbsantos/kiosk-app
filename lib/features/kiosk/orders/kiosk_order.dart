@@ -27,9 +27,6 @@ class KioskOrder {
   final String paymentMethod;
   final String paymentStatus;
   final String orderMode;
-  /// Catalog version used when this transaction snapshot was created.
-  /// Nullable for legacy orders created before K25.
-  final String? catalogVersion;
   final KioskOrderStatus status;
   final String? cancellationReason;
   final String? modificationReason;
@@ -45,7 +42,6 @@ class KioskOrder {
     required this.paymentMethod,
     this.paymentStatus = 'pending',
     this.orderMode = 'Customer',
-    this.catalogVersion,
     required this.status,
     this.cancellationReason,
     this.modificationReason,
@@ -74,7 +70,6 @@ class KioskOrder {
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       orderMode: orderMode ?? this.orderMode,
-      catalogVersion: catalogVersion,
       status: status ?? this.status,
       cancellationReason: cancellationReason ?? this.cancellationReason,
       modificationReason: modificationReason ?? this.modificationReason,
@@ -93,7 +88,6 @@ class KioskOrder {
       'paymentMethod': paymentMethod,
       'paymentStatus': paymentStatus,
       'orderMode': orderMode,
-      'catalogVersion': catalogVersion,
       'status': status.value,
       'cancellationReason': cancellationReason,
       'modificationReason': modificationReason,
@@ -109,7 +103,6 @@ class KioskOrder {
           'groupName': item.product.groupName,
           'kitchenPrepared': item.product.kitchenPrepared,
           'category': item.product.category.id,
-          'categoryName': item.product.category.title,
           'size': item.size == null
               ? null
               : {
@@ -139,6 +132,7 @@ class KioskOrder {
                   'name': option.name,
                   'price': option.price,
                   'kitchenPrepared': option.kitchenPrepared,
+                  'automatic': option.automatic,
                 },
               )
               .toList(),
@@ -177,11 +171,10 @@ class KioskOrder {
         );
       }
 
-      final categoryId = data['category'] as String? ?? '';
-      final category = KioskCategory.fromCatalog(
-        id: categoryId,
-        title: data['categoryName'] as String? ?? categoryId,
-      );
+      final category = KioskCategory.fromId(
+            data['category'] as String? ?? '',
+          ) ??
+          KioskCategory.accessories;
 
       final productType = data['productType'] as String? ?? 'drink';
       final storedTemperature = data['drinkTemperature'] as String?;
@@ -202,6 +195,7 @@ class KioskOrder {
           name: option['name'] as String,
           price: option['price'] as int,
           kitchenPrepared: option['kitchenPrepared'] as bool? ?? false,
+          automatic: option['automatic'] as bool? ?? false,
         );
       }).toList(growable: false);
 
@@ -268,7 +262,6 @@ class KioskOrder {
       paymentMethod: json['paymentMethod'] as String? ?? 'Pay at Counter',
       paymentStatus: json['paymentStatus'] as String? ?? 'pending',
       orderMode: json['orderMode'] as String? ?? 'Customer',
-      catalogVersion: json['catalogVersion'] as String?,
       status: KioskOrderStatusX.fromValue(
         json['status'] as String? ?? 'pending',
       ),
