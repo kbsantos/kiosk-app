@@ -159,7 +159,7 @@ class ReportingSyncService {
           continue;
         }
 
-        final order = _restoreOrderFromDatabase(json);
+        final order = restoreOrderFromDatabase(json);
         missingOrders.add(order);
         localIds.add(externalId);
       } catch (error) {
@@ -200,7 +200,7 @@ class ReportingSyncService {
     );
   }
 
-  KioskOrder _restoreOrderFromDatabase(Map<String, dynamic> json) {
+  KioskOrder restoreOrderFromDatabase(Map<String, dynamic> json) {
     String textValue(
       dynamic value, {
       required String fallback,
@@ -360,7 +360,7 @@ class ReportingSyncService {
       final product = KioskProduct(
         id: productId,
         name: productName,
-        price: size == null && variant == null ? storedUnitPrice : null,
+        price: size == null && variant == null ? basePrice : null,
         category: category,
         groupId: groupId?.isEmpty == true ? null : groupId,
         groupName: groupName?.isEmpty == true ? null : groupName,
