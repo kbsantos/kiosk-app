@@ -235,11 +235,19 @@ class KioskBluetoothPrinter {
       for (final item in baristaItems) {
         line('${item.quantity} x ${item.product.name}');
         if (item.size != null) {
-          line('  ${item.size!.name}'
-              '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}');
+          final sizeText = '${item.size!.name}'
+              '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}';
+          final sugarText = item.sugarLevel == null ? null : 'SUGAR: ${item.sugarLevel}%';
+          if (sugarText == null) {
+            line('  $sizeText');
+          } else {
+            line(_fitLine('  $sizeText', sugarText, width));
+          }
+        } else if (item.sugarLevel != null) {
+          line('  SUGAR: ${item.sugarLevel}%');
         }
         if (item.variant != null) line('  ${item.variant!.name}');
-        for (final option in item.options) {
+        for (final option in item.options.where((option) => !option.automatic)) {
           line('  + ${option.name}');
         }
       }
@@ -260,7 +268,7 @@ class KioskBluetoothPrinter {
               '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}');
         }
         if (item.variant != null) line('  ${item.variant!.name}');
-        for (final option in item.options.where((o) => o.kitchenPrepared)) {
+        for (final option in item.options.where((o) => o.kitchenPrepared && !o.automatic)) {
           line('  + ${option.name}');
         }
       }

@@ -269,7 +269,10 @@ Future<void> addKioskProductToCart(
       .where((option) => !option.autoApply)
       .toList(growable: false);
 
-  if (selectableOptions.isEmpty) {
+  final isDrink = product.productType.toLowerCase() == 'drink';
+  final needsCustomizationSheet = selectableOptions.isNotEmpty || isDrink;
+
+  if (!needsCustomizationSheet) {
     if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
       cart.add(
         product,
@@ -281,20 +284,21 @@ Future<void> addKioskProductToCart(
     return;
   }
 
-  final options = await showModalBottomSheet<List<KioskOption>>(
+  final selection = await showModalBottomSheet<_KioskCustomizationSelection>(
     context: context,
     isScrollControlled: true,
     builder: (_) => _ProductAddOnsSheet(product: product),
   );
 
   if (!context.mounted) return;
-  if (options == null) return;
+  if (selection == null) return;
   if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
     cart.add(
       product,
       size: selectedSize,
       variant: selectedVariant,
-      options: [...automaticOptions, ...options],
+      options: [...automaticOptions, ...selection.options],
+      sugarLevel: selection.sugarLevel,
     );
   }
 }
@@ -392,6 +396,16 @@ class _SizePriceRow extends StatelessWidget {
   }
 }
 
+class _KioskCustomizationSelection {
+  final List<KioskOption> options;
+  final int? sugarLevel;
+
+  const _KioskCustomizationSelection({
+    required this.options,
+    this.sugarLevel,
+  });
+}
+
 class _ProductAddOnsSheet extends StatefulWidget {
   final KioskProduct product;
 
@@ -404,6 +418,7 @@ class _ProductAddOnsSheet extends StatefulWidget {
 class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
   late final Set<String> _selected;
   bool _showAddOns = false;
+  int _sugarLevel = 100;
 
   @override
   void initState() {
@@ -439,55 +454,107 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'ADD-ONS',
-                style: TextStyle(
+              Text(
+                widget.product.productType.toLowerCase() == 'drink'
+                    ? 'CUSTOMIZE DRINK'
+                    : 'ADD-ONS',
+                style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Choose any add-ons for ${widget.product.name}',
+                widget.product.productType.toLowerCase() == 'drink'
+                    ? 'Set your drink preferences for ${widget.product.name}'
+                    : 'Choose any add-ons for ${widget.product.name}',
                 style: const TextStyle(
                   fontSize: 15,
                   color: Colors.black54,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showAddOns = !_showAddOns;
-                    });
-                  },
-                  icon: Icon(
-                    _showAddOns ? Icons.expand_less : Icons.add_circle_outline,
+              if (widget.product.productType.toLowerCase() == 'drink') ...[
+                const Text(
+                  'SUGAR LEVEL',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
-                  label: Text(
-                    _showAddOns ? 'HIDE ADD-ONS' : 'ADD-ONS',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose how sweet you want your drink.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
                   ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC69214),
-                    side: const BorderSide(
-                      color: Color(0xFFC69214),
-                      width: 2,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [0, 25, 50, 75, 100].map((level) {
+                    final selected = _sugarLevel == level;
+                    return ChoiceChip(
+                      label: Text(
+                        level == 0
+                            ? '0% No Sugar'
+                            : level == 50
+                                ? '50% Half'
+                                : level == 100
+                                    ? '100% Regular'
+                                    : '$level%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: selected ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      selected: selected,
+                      selectedColor: const Color(0xFFC69214),
+                      backgroundColor: const Color(0xFFF5F2ED),
+                      onSelected: (_) => setState(() => _sugarLevel = level),
+                    );
+                  }).toList(growable: false),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (options.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showAddOns = !_showAddOns;
+                      });
+                    },
+                    icon: Icon(
+                      _showAddOns ? Icons.expand_less : Icons.add_circle_outline,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                    label: Text(
+                      _showAddOns ? 'HIDE ADD-ONS' : 'ADD-ONS',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFC69214),
+                      side: const BorderSide(
+                        color: Color(0xFFC69214),
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (_showAddOns) ...[
+              ],
+              if (_showAddOns && options.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Flexible(
                   child: ListView(
@@ -531,7 +598,14 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
                     final selected = options
                         .where((option) => _selected.contains(option.id))
                         .toList(growable: false);
-                    Navigator.of(context).pop(selected);
+                    Navigator.of(context).pop(
+                      _KioskCustomizationSelection(
+                        options: selected,
+                        sugarLevel: widget.product.productType.toLowerCase() == 'drink'
+                            ? _sugarLevel
+                            : null,
+                      ),
+                    );
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFC69214),

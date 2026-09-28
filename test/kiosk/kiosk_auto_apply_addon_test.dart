@@ -78,10 +78,11 @@ void main() {
       (tester) async {
     final cart = KioskCart();
     const product = KioskProduct(
-      id: 'iced_latte',
-      name: 'Iced Latte',
+      id: 'chicken_rice',
+      name: 'Chicken Rice',
       price: 120,
-      category: KioskCategory.coffee,
+      category: KioskCategory.riceMeals,
+      productType: 'food',
       options: [
         KioskCatalogOption(
           id: 'paper_straw',

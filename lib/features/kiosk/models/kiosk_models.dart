@@ -208,6 +208,9 @@ class KioskCartItem {
   final List<KioskOption> options;
   /// Snapshot from the product at time of sale; null for legacy orders.
   final String? drinkTemperature;
+  /// Customer-selected sugar percentage for drinks. Null for non-drinks.
+  /// 100 means the shop's regular/default sweetness.
+  final int? sugarLevel;
 
   const KioskCartItem({
     required this.product,
@@ -216,6 +219,7 @@ class KioskCartItem {
     this.quantity = 1,
     this.options = const [],
     this.drinkTemperature,
+    this.sugarLevel,
   });
 
   int get basePrice => size?.price ?? variant?.price ?? product.price ?? 0;
@@ -264,6 +268,7 @@ class KioskCartItem {
     KioskVariant? variant,
     List<KioskOption>? options,
     String? drinkTemperature,
+    int? sugarLevel,
   }) {
     return KioskCartItem(
       product: product,
@@ -272,6 +277,7 @@ class KioskCartItem {
       quantity: quantity ?? this.quantity,
       options: options ?? this.options,
       drinkTemperature: drinkTemperature ?? this.drinkTemperature,
+      sugarLevel: sugarLevel ?? this.sugarLevel,
     );
   }
 }
@@ -302,6 +308,7 @@ class KioskCart extends ChangeNotifier {
     KioskSize? size,
     KioskVariant? variant,
     List<KioskOption> options = const [],
+    int? sugarLevel,
   }) {
     if (!canAdd(product, size: size, variant: variant)) return;
 
@@ -312,6 +319,9 @@ class KioskCart extends ChangeNotifier {
         variant: variant,
         options: List.unmodifiable(options),
         drinkTemperature: product.drinkTemperature,
+        sugarLevel: product.productType.toLowerCase() == 'drink'
+            ? (sugarLevel ?? 100)
+            : null,
       ),
     );
 

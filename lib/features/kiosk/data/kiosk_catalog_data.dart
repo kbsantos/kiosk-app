@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import '../../../product_catalog/kiosk_catalog_adapter.dart';
 import '../../catalog/store_catalog_sync_service.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
@@ -50,11 +52,15 @@ class KioskCatalogData {
   }
 
   static Future<Map<KioskCategory, List<KioskProduct>>> load() async {
-    // Automatically pull a newer store-master catalog when available. Any
-    // network/configuration failure is intentionally ignored so the kiosk
-    // continues using its last known-good local catalog.
-    await _storeCatalogSync.refreshIfMasterChanged();
+    // The local catalog is the operational source for the kiosk. Load it
+    // first so an unavailable network can never block the product menu.
     final catalog = await _repository.load();
+
+    // Synchronization is best-effort and deliberately kept off the critical
+    // menu-loading path. If connectivity is available, a later call to
+    // load() will pick up the refreshed local catalog. If connectivity is
+    // unavailable, the current last-known-good catalog remains usable.
+    unawaited(_storeCatalogSync.refreshIfMasterChanged());
 
     // Only active categories are exposed to the customer kiosk. The
     // Category Manager's `active` flag is the source of truth for category

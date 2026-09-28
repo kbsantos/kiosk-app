@@ -352,6 +352,11 @@ class ReportingSyncService {
           KioskCategory.accessories;
 
       final temperature = item['drink_temperature']?.toString().trim();
+      final rawSugarLevel = item['sugar_level'];
+      final parsedSugarLevel = rawSugarLevel is num ? rawSugarLevel.toInt() : int.tryParse(rawSugarLevel?.toString() ?? '');
+      final normalizedSugarLevel = productType.toLowerCase() == 'drink'
+          ? ((parsedSugarLevel == null || parsedSugarLevel < 0 || parsedSugarLevel > 200) ? 100 : parsedSugarLevel)
+          : null;
       final normalizedTemperature =
           temperature == 'hot' || temperature == 'iced'
               ? temperature
@@ -379,6 +384,7 @@ class ReportingSyncService {
           quantity: intValue(item['quantity'], fallback: 1),
           options: List.unmodifiable(options),
           drinkTemperature: normalizedTemperature,
+          sugarLevel: normalizedSugarLevel,
         ),
       );
     }

@@ -99,6 +99,7 @@ class KioskOrder {
           'productName': item.product.name,
           'productType': item.product.productType,
           'drinkTemperature': item.drinkTemperature,
+          'sugarLevel': item.sugarLevel,
           'groupId': item.product.groupId,
           'groupName': item.product.groupName,
           'kitchenPrepared': item.product.kitchenPrepared,
@@ -178,6 +179,12 @@ class KioskOrder {
 
       final productType = data['productType'] as String? ?? 'drink';
       final storedTemperature = data['drinkTemperature'] as String?;
+      final storedSugarLevel = data['sugarLevel'] as int?;
+      final effectiveSugarLevel = productType.toLowerCase() == 'drink'
+          ? (storedSugarLevel == null || storedSugarLevel < 0 || storedSugarLevel > 200
+              ? 100
+              : storedSugarLevel)
+          : null;
       final effectiveTemperature = _legacyDrinkTemperature(
         productType: productType,
         productId: data['productId'] as String,
@@ -251,6 +258,7 @@ class KioskOrder {
         quantity: data['quantity'] as int? ?? 1,
         options: options,
         drinkTemperature: effectiveTemperature,
+        sugarLevel: effectiveSugarLevel,
       );
     }).toList(growable: false);
 
