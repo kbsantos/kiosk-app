@@ -196,7 +196,7 @@ class _OrderItemTile extends StatelessWidget {
           if (item.options.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              item.options.map((option) => option.name).join(' • '),
+              item.options.map((option) => option.displayLabel).join(' • '),
               style: const TextStyle(
                 color: Colors.black54,
                 fontSize: 12,

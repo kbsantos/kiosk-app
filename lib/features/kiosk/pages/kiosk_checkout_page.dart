@@ -461,7 +461,7 @@ class _KioskCheckoutPageState extends State<KioskCheckoutPage> {
                                     if (item.options.isNotEmpty)
                                       Text(
                                         item.options
-                                            .map((option) => option.name)
+                                            .map((option) => option.displayLabel)
                                             .join(' • '),
                                         style: const TextStyle(
                                           color: Colors.black54,

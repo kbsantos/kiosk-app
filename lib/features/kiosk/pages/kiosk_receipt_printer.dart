@@ -240,7 +240,7 @@ class KioskReceiptPrinter {
         .where(
           (item) =>
               item.product.kitchenPrepared ||
-              item.options.any((o) => o.kitchenPrepared),
+              item.options.any((o) => !o.automatic),
         )
         .toList(growable: false);
   }
@@ -270,7 +270,6 @@ class KioskReceiptPrinter {
     for (final item in kitchenItems) {
       productionHeight += 18;
       if (item.variant != null) productionHeight += 8;
-      productionHeight += item.options.where((o) => o.kitchenPrepared && !o.automatic).length * 8;
     }
     // Customer receipts keep their established 210mm base. Production-only
     // copies use content-driven height so there is no artificial blank space
@@ -383,12 +382,12 @@ class KioskReceiptPrinter {
                               children: [
                                 pw.Expanded(
                                   child: pw.Text(
-                                    '  + ${option.name} (automatic charge)',
+                                    '  + ${option.displayLabel} (automatic charge)',
                                     style: const pw.TextStyle(fontSize: 8),
                                   ),
                                 ),
                                 pw.Text(
-                                  KioskCurrency.formatCode(option.price),
+                                  KioskCurrency.formatCode(option.totalPrice),
                                   style: const pw.TextStyle(fontSize: 8),
                                 ),
                               ],
@@ -489,7 +488,7 @@ class KioskReceiptPrinter {
                           ),
                         ...entry.value.options.where((o) => !o.automatic).map(
                           (option) => pw.Text(
-                            '  + ${option.name}',
+                            '  + ${option.displayLabel}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
                         ),
@@ -543,9 +542,9 @@ class KioskReceiptPrinter {
                             '  ${entry.value.variant!.name}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
-                        ...entry.value.options.where((o) => o.kitchenPrepared && !o.automatic).map(
+                        ...entry.value.options.where((o) => !o.automatic).map(
                               (option) => pw.Text(
-                                '  + ${option.name}',
+                                '  + ${option.displayLabel}',
                                 style: const pw.TextStyle(fontSize: 8),
                               ),
                             ),

@@ -160,7 +160,7 @@ class KioskEodExcelExporter {
               ? ''
               : '${item.size!.name}${item.size!.displayVolume == null ? '' : ' (${item.size!.displayVolume})'}'),
           TextCellValue(item.variant?.name ?? ''),
-          TextCellValue(item.options.map((option) => option.name).join(', ')),
+          TextCellValue(item.options.map((option) => option.displayLabel).join(', ')),
           IntCellValue(item.quantity),
           IntCellValue(item.unitPrice),
           IntCellValue(item.total),
@@ -379,8 +379,8 @@ class KioskEodExcelExporter {
             (mealCounts[item.product.name] ?? 0) + item.quantity;
 
         for (final option in item.options) {
-          addOnCounts[option.name] =
-              (addOnCounts[option.name] ?? 0) + (item.quantity);
+          addOnCounts[option.displayLabel] =
+              (addOnCounts[option.displayLabel] ?? 0) + (item.quantity * option.quantity);
         }
       }
     }

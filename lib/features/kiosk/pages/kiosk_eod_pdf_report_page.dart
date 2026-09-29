@@ -444,7 +444,7 @@ class KioskEodPdfReportPage extends StatelessWidget {
         if (i.product.category != KioskCategory.riceMeals) continue;
         meals[i.product.name] = (meals[i.product.name] ?? 0) + i.quantity;
         for (final option in i.options) {
-          addons[option.name] = (addons[option.name] ?? 0) + i.quantity;
+          addons[option.displayLabel] = (addons[option.displayLabel] ?? 0) + (i.quantity * option.quantity);
         }
       }
     }

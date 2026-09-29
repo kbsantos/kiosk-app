@@ -37,6 +37,7 @@ class ReportingTransactionMapper {
                 'option_id': option.id,
                 'option_name': option.name,
                 'price': option.price,
+                'quantity': option.quantity,
                 'kitchen_prepared': option.kitchenPrepared,
                 'automatic': option.automatic,
               },

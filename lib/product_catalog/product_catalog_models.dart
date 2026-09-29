@@ -1,3 +1,9 @@
+int? _parseOptionalInt(dynamic value) {
+  if (value == null) return null;
+  if (value is num) return value.toInt();
+  return int.tryParse(value.toString());
+}
+
 class ProductCatalog {
   /// Product-catalog data contract version. This is separate from the
   /// commercial catalogVersion and is used to guard file compatibility.
@@ -240,6 +246,9 @@ class CatalogOptionDefinition {
   final num? price;
   final bool active;
   final bool kitchenPrepared;
+  /// Store Management ordering for customer-visible add-ons. Null preserves
+  /// legacy catalogs that encode ordering by array position.
+  final int? sortOrder;
 
   const CatalogOptionDefinition({
     required this.optionId,
@@ -248,6 +257,7 @@ class CatalogOptionDefinition {
     this.price,
     required this.active,
     this.kitchenPrepared = false,
+    this.sortOrder,
   });
 
   factory CatalogOptionDefinition.fromJson(Map<String, dynamic> json) {
@@ -260,6 +270,7 @@ class CatalogOptionDefinition {
       price: json['price'] as num?,
       active: json['active'] == true,
       kitchenPrepared: json['kitchenPrepared'] == true,
+      sortOrder: _parseOptionalInt(json['sortOrder'] ?? json['displayOrder'] ?? json['position']),
     );
   }
 
@@ -270,15 +281,17 @@ class CatalogOptionDefinition {
     if (price != null) 'price': price,
     'active': active,
     'kitchenPrepared': kitchenPrepared,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
   CatalogOptionDefinition copyWith({
     String? optionId, String? name, List<String>? productTypes,
-    num? price, bool? active, bool? kitchenPrepared,
+    num? price, bool? active, bool? kitchenPrepared, int? sortOrder,
   }) => CatalogOptionDefinition(
     optionId: optionId ?? this.optionId, name: name ?? this.name,
     productTypes: productTypes ?? this.productTypes, price: price ?? this.price,
     active: active ?? this.active, kitchenPrepared: kitchenPrepared ?? this.kitchenPrepared,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
 }
 
@@ -380,6 +393,8 @@ class ProductSize {
   final int? volumeMl;
   final String? displayVolume;
   final num? price;
+  /// Store Management ordering for this product's sizes.
+  final int? sortOrder;
 
   const ProductSize({
     required this.sizeId,
@@ -387,6 +402,7 @@ class ProductSize {
     this.volumeMl,
     this.displayVolume,
     this.price,
+    this.sortOrder,
   });
 
   factory ProductSize.fromJson(Map<String, dynamic> json) {
@@ -396,17 +412,22 @@ class ProductSize {
       volumeMl: (json['volumeMl'] as num?)?.toInt(),
       displayVolume: json['displayVolume']?.toString(),
       price: json['price'] as num?,
+      sortOrder: _parseOptionalInt(
+        json['sortOrder'] ?? json['displayOrder'] ?? json['position'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'sizeId': sizeId, 'name': name, if (volumeMl != null) 'volumeMl': volumeMl,
     if (displayVolume != null) 'displayVolume': displayVolume, if (price != null) 'price': price,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
-  ProductSize copyWith({String? sizeId, String? name, int? volumeMl, String? displayVolume, num? price}) => ProductSize(
+  ProductSize copyWith({String? sizeId, String? name, int? volumeMl, String? displayVolume, num? price, int? sortOrder}) => ProductSize(
     sizeId: sizeId ?? this.sizeId, name: name ?? this.name, volumeMl: volumeMl ?? this.volumeMl,
     displayVolume: displayVolume ?? this.displayVolume, price: price ?? this.price,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
 }
 
@@ -415,12 +436,15 @@ class ProductVariant {
   final String name;
   final num? price;
   final bool active;
+  /// Store Management ordering for this product's variants.
+  final int? sortOrder;
 
   const ProductVariant({
     required this.variantId,
     required this.name,
     this.price,
     required this.active,
+    this.sortOrder,
   });
 
   factory ProductVariant.fromJson(Map<String, dynamic> json) {
@@ -429,16 +453,20 @@ class ProductVariant {
       name: json['name']?.toString() ?? '',
       price: json['price'] as num?,
       active: json['active'] == true,
+      sortOrder: _parseOptionalInt(
+        json['sortOrder'] ?? json['displayOrder'] ?? json['position'],
+      ),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'variantId': variantId, 'name': name, if (price != null) 'price': price, 'active': active,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
-  ProductVariant copyWith({String? variantId, String? name, num? price, bool? active}) => ProductVariant(
+  ProductVariant copyWith({String? variantId, String? name, num? price, bool? active, int? sortOrder}) => ProductVariant(
     variantId: variantId ?? this.variantId, name: name ?? this.name, price: price ?? this.price,
-    active: active ?? this.active,
+    active: active ?? this.active, sortOrder: sortOrder ?? this.sortOrder,
   );
 }
 
@@ -451,6 +479,8 @@ class ProductOption {
   /// When true, the kiosk preselects this option when the product is added.
   /// The customer can still remove the option before adding the item.
   final bool autoApply;
+  /// Store Management ordering for this product's add-on list.
+  final int? sortOrder;
 
   const ProductOption({
     required this.optionId,
@@ -459,6 +489,7 @@ class ProductOption {
     required this.active,
     this.kitchenPrepared = false,
     this.autoApply = false,
+    this.sortOrder,
   });
 
   factory ProductOption.fromJson(Map<String, dynamic> json) {
@@ -469,12 +500,14 @@ class ProductOption {
       active: json['active'] == true,
       kitchenPrepared: json['kitchenPrepared'] == true,
       autoApply: json['autoApply'] == true,
+      sortOrder: _parseOptionalInt(json['sortOrder'] ?? json['displayOrder'] ?? json['position']),
     );
   }
 
   Map<String, dynamic> toJson() => {
     'optionId': optionId, 'name': name, if (price != null) 'price': price,
     'active': active, 'kitchenPrepared': kitchenPrepared, 'autoApply': autoApply,
+    if (sortOrder != null) 'sortOrder': sortOrder,
   };
 
   ProductOption copyWith({
@@ -484,6 +517,7 @@ class ProductOption {
     bool? active,
     bool? kitchenPrepared,
     bool? autoApply,
+    int? sortOrder,
   }) => ProductOption(
     optionId: optionId ?? this.optionId,
     name: name ?? this.name,
@@ -491,5 +525,6 @@ class ProductOption {
     active: active ?? this.active,
     kitchenPrepared: kitchenPrepared ?? this.kitchenPrepared,
     autoApply: autoApply ?? this.autoApply,
+    sortOrder: sortOrder ?? this.sortOrder,
   );
 }

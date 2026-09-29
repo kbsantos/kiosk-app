@@ -179,7 +179,7 @@ class KioskBluetoothPrinter {
         .where(
           (item) =>
               item.product.kitchenPrepared ||
-              item.options.any((option) => option.kitchenPrepared),
+              item.options.any((option) => !option.automatic),
         )
         .toList(growable: false);
 
@@ -212,7 +212,7 @@ class KioskBluetoothPrinter {
           line('  ${item.variant!.name}');
         }
         for (final option in item.options) {
-          line('  + ${option.name}');
+          line('  + ${option.displayLabel}');
         }
       }
 
@@ -248,7 +248,7 @@ class KioskBluetoothPrinter {
         }
         if (item.variant != null) line('  ${item.variant!.name}');
         for (final option in item.options.where((option) => !option.automatic)) {
-          line('  + ${option.name}');
+          line('  + ${option.displayLabel}');
         }
       }
     }
@@ -268,8 +268,8 @@ class KioskBluetoothPrinter {
               '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}');
         }
         if (item.variant != null) line('  ${item.variant!.name}');
-        for (final option in item.options.where((o) => o.kitchenPrepared && !o.automatic)) {
-          line('  + ${option.name}');
+        for (final option in item.options.where((option) => !option.automatic)) {
+          line('  + ${option.displayLabel}');
         }
       }
     }

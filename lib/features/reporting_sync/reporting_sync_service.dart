@@ -313,6 +313,7 @@ class ReportingSyncService {
             ),
             name: optionName,
             price: intValue(option['price']),
+            quantity: intValue(option['quantity']) <= 0 ? 1 : intValue(option['quantity']),
             kitchenPrepared: option['kitchen_prepared'] as bool? ?? false,
             automatic: option['automatic'] as bool? ?? false,
           ),
@@ -326,7 +327,7 @@ class ReportingSyncService {
       final storedUnitPrice = intValue(item['unit_price']);
       final optionTotal = options.fold<int>(
         0,
-        (sum, option) => sum + option.price,
+        (sum, option) => sum + option.totalPrice,
       );
       final basePrice = storedUnitPrice - optionTotal;
 

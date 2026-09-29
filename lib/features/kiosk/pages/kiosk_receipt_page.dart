@@ -195,7 +195,7 @@ class KioskReceiptPage extends StatelessWidget {
                                       ),
                                     ),
                                     Text(
-                                      '${option.name} + ${KioskCurrency.format(option.price)}',
+                                      '${option.name} + ${KioskCurrency.format(option.totalPrice)}',
                                       style: const TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w700,

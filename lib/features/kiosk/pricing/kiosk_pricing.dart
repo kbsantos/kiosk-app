@@ -76,7 +76,7 @@ class KioskPricing {
     return base +
         options.fold<int>(
           0,
-          (sum, option) => sum + option.price,
+          (sum, option) => sum + option.totalPrice,
         );
   }
 }

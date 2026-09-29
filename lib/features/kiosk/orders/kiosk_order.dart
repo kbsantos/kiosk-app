@@ -132,6 +132,7 @@ class KioskOrder {
                   'id': option.id,
                   'name': option.name,
                   'price': option.price,
+                  'quantity': option.quantity,
                   'kitchenPrepared': option.kitchenPrepared,
                   'automatic': option.automatic,
                 },
@@ -201,6 +202,7 @@ class KioskOrder {
           id: option['id'] as String,
           name: option['name'] as String,
           price: option['price'] as int,
+          quantity: (option['quantity'] as num?)?.toInt() ?? 1,
           kitchenPrepared: option['kitchenPrepared'] as bool? ?? false,
           automatic: option['automatic'] as bool? ?? false,
         );
@@ -210,7 +212,7 @@ class KioskOrder {
       final storedBasePrice = data['basePrice'] as int?;
       final optionTotal = options.fold<int>(
         0,
-        (sum, option) => sum + option.price,
+        (sum, option) => sum + option.totalPrice,
       );
       // Legacy snapshots did not persist basePrice. For a product without a
       // size/variant, recover the base price from the final stored unit price

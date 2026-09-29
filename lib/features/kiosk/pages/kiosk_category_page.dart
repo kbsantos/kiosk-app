@@ -417,6 +417,7 @@ class _ProductAddOnsSheet extends StatefulWidget {
 
 class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
   late final Set<String> _selected;
+  late final Map<String, int> _quantities;
   bool _showAddOns = false;
   int _sugarLevel = 100;
 
@@ -427,6 +428,10 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
         .where((option) => option.autoApply)
         .map((option) => option.id)
         .toSet();
+    _quantities = {
+      for (final option in widget.product.options.where((option) => option.autoApply))
+        option.id: 1,
+    };
   }
 
   @override
@@ -561,29 +566,81 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
                     shrinkWrap: true,
                     children: [
                       ...options.map(
-                        (option) => CheckboxListTile(
-                          value: _selected.contains(option.id),
-                          activeColor: const Color(0xFFC69214),
-                          title: Text(
-                            option.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                        (option) {
+                          final selected = _selected.contains(option.id);
+                          final quantity = _quantities[option.id] ?? 1;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: selected ? const Color(0xFFC69214) : Colors.black12,
+                                  width: selected ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: selected,
+                                    activeColor: const Color(0xFFC69214),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          _selected.add(option.id);
+                                          _quantities[option.id] = 1;
+                                        } else {
+                                          _selected.remove(option.id);
+                                          _quantities.remove(option.id);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          option.name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        Text('+${KioskCurrency.format(option.price)} each'),
+                                      ],
+                                    ),
+                                  ),
+                                  if (selected) ...[
+                                    IconButton(
+                                      tooltip: 'Decrease quantity',
+                                      onPressed: quantity > 1
+                                          ? () => setState(() => _quantities[option.id] = quantity - 1)
+                                          : null,
+                                      icon: const Icon(Icons.remove_circle_outline),
+                                    ),
+                                    SizedBox(
+                                      width: 28,
+                                      child: Text(
+                                        '$quantity',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Increase quantity',
+                                      onPressed: quantity < 99
+                                          ? () => setState(() => _quantities[option.id] = quantity + 1)
+                                          : null,
+                                      icon: const Icon(Icons.add_circle_outline),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            '+${KioskCurrency.format(option.price)}',
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              if (value == true) {
-                                _selected.add(option.id);
-                              } else {
-                                _selected.remove(option.id);
-                              }
-                            });
-                          },
-                        ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -597,6 +654,15 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
                   onPressed: () {
                     final selected = options
                         .where((option) => _selected.contains(option.id))
+                        .map(
+                          (option) => KioskOption(
+                            id: option.id,
+                            name: option.name,
+                            price: option.price,
+                            quantity: _quantities[option.id] ?? 1,
+                            kitchenPrepared: option.kitchenPrepared,
+                          ),
+                        )
                         .toList(growable: false);
                     Navigator.of(context).pop(
                       _KioskCustomizationSelection(

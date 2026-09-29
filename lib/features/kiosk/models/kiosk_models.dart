@@ -75,6 +75,8 @@ class KioskSize {
   final int? volumeMl;
   final String? displayVolume;
   final int? price;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskSize({
     required this.id,
@@ -82,6 +84,7 @@ class KioskSize {
     this.volumeMl,
     this.displayVolume,
     this.price,
+    this.sortOrder,
   });
 
   bool get priceConfigured => price != null;
@@ -92,12 +95,15 @@ class KioskVariant {
   final String name;
   final int? price;
   final bool active;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskVariant({
     required this.id,
     required this.name,
     this.price,
     this.active = true,
+    this.sortOrder,
   });
 
   bool get priceConfigured => price != null;
@@ -107,12 +113,14 @@ class KioskVariant {
     String? name,
     int? price,
     bool? active,
+    int? sortOrder,
   }) {
     return KioskVariant(
       id: id ?? this.id,
       name: name ?? this.name,
       price: price ?? this.price,
       active: active ?? this.active,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }
@@ -126,6 +134,8 @@ class KioskCatalogOption {
   final bool autoApply;
   /// True when this option is a mandatory catalog charge automatically added to the order.
   final bool automatic;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskCatalogOption({
     required this.id,
@@ -134,6 +144,7 @@ class KioskCatalogOption {
     this.kitchenPrepared = false,
     this.autoApply = false,
     this.automatic = false,
+    this.sortOrder,
   });
 }
 
@@ -187,14 +198,23 @@ class KioskOption {
   final String id;
   final String name;
   final int price;
+  /// Number of units of this add-on selected for this cart item.
+  /// Automatic charges remain quantity 1 unless explicitly restored from history.
+  final int quantity;
   final bool kitchenPrepared;
   /// True when this option is a mandatory catalog charge and cannot be removed by the customer.
   final bool automatic;
+
+  int get totalPrice => price * quantity;
+
+  String get displayLabel =>
+      quantity > 1 ? '$quantity x $name' : name;
 
   const KioskOption({
     required this.id,
     required this.name,
     required this.price,
+    this.quantity = 1,
     this.kitchenPrepared = false,
     this.automatic = false,
   });
@@ -227,18 +247,18 @@ class KioskCartItem {
   int get automaticChargeTotal =>
       options.where((option) => option.automatic).fold<int>(
             0,
-            (sum, option) => sum + option.price,
+            (sum, option) => sum + option.totalPrice,
           );
 
   int get selectableOptionTotal =>
       options.where((option) => !option.automatic).fold<int>(
             0,
-            (sum, option) => sum + option.price,
+            (sum, option) => sum + option.totalPrice,
           );
 
   int get unitPrice => basePrice + options.fold<int>(
         0,
-        (sum, option) => sum + option.price,
+        (sum, option) => sum + option.totalPrice,
       );
 
   int get total => unitPrice * quantity;
@@ -257,7 +277,7 @@ class KioskCartItem {
       parts.add(variant!.name);
     }
     if (options.isNotEmpty) {
-      parts.add(options.map((option) => option.name).join(' • '));
+      parts.add(options.map((option) => option.displayLabel).join(' • '));
     }
     return parts.join(' — ');
   }

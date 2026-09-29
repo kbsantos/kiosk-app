@@ -46,7 +46,7 @@ class KioskAutomaticChargeSummary {
         for (final option in item.options.where((option) => option.automatic)) {
           quantities[option.id] = (quantities[option.id] ?? 0) + item.quantity;
           amounts[option.id] =
-              (amounts[option.id] ?? 0) + option.price * item.quantity;
+              (amounts[option.id] ?? 0) + option.totalPrice * item.quantity;
           names[option.id] = option.name;
         }
       }

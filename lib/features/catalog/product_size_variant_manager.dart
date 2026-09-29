@@ -525,6 +525,7 @@ class _SizeDialogState extends State<_SizeDialog> {
         displayVolume:
             _display.text.trim().isEmpty ? null : _display.text.trim(),
         price: price,
+        sortOrder: widget.size?.sortOrder,
       ),
     );
   }
@@ -708,6 +709,7 @@ class _VariantDialogState extends State<_VariantDialog> {
         name: name,
         price: price,
         active: _active,
+        sortOrder: widget.variant?.sortOrder,
       ),
     );
   }
