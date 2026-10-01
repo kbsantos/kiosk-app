@@ -28,6 +28,8 @@ class _KioskAdministrationSyncPageState
   bool _historicalSyncing = false;
   bool _transactionSyncing = false;
   bool _restoreSyncing = false;
+  int _transactionSyncCompleted = 0;
+  int _transactionSyncTotal = 0;
   bool? _masterCatalogExists;
 
   @override
@@ -295,10 +297,22 @@ class _KioskAdministrationSyncPageState
 
     if (confirmed != true || !mounted) return;
 
-    setState(() => _transactionSyncing = true);
+    setState(() {
+      _transactionSyncing = true;
+      _transactionSyncCompleted = 0;
+      _transactionSyncTotal = 0;
+    });
 
     try {
-      final result = await _reportingSyncService.syncAllTransactions();
+      final result = await _reportingSyncService.syncAllTransactions(
+        onProgress: (completed, total) {
+          if (!mounted) return;
+          setState(() {
+            _transactionSyncCompleted = completed;
+            _transactionSyncTotal = total;
+          });
+        },
+      );
 
       if (!mounted) return;
 
@@ -468,7 +482,9 @@ class _KioskAdministrationSyncPageState
     const dark = Color(0xFF171717);
     const gold = Color(0xFFC69214);
 
-    return Scaffold(
+    return Stack(
+      children: [
+        Scaffold(
       backgroundColor: const Color(0xFFF5F2ED),
       appBar: AppBar(
         backgroundColor: dark,
@@ -646,6 +662,73 @@ class _KioskAdministrationSyncPageState
           ),
         ),
       ),
+        ),
+        if (_transactionSyncing)
+          Positioned.fill(
+            child: AbsorbPointer(
+              absorbing: true,
+              child: ColoredBox(
+                color: Colors.black54,
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 420),
+                    child: Card(
+                      elevation: 12,
+                      margin: const EdgeInsets.all(24),
+                      child: Padding(
+                        padding: const EdgeInsets.all(28),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(
+                              width: 52,
+                              height: 52,
+                              child: CircularProgressIndicator(strokeWidth: 5),
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'SYNCING TRANSACTIONS',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Please wait while locally stored transactions are sent to the reporting database. Keep this screen open.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            if (_transactionSyncTotal > 0) ...[
+                              LinearProgressIndicator(
+                                value: _transactionSyncCompleted /
+                                    _transactionSyncTotal,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                '$_transactionSyncCompleted of '
+                                '$_transactionSyncTotal transactions processed',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ] else
+                              const Text(
+                                'Preparing transaction list…',
+                                textAlign: TextAlign.center,
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

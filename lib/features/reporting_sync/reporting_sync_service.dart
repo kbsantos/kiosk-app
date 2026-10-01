@@ -107,9 +107,12 @@ class ReportingSyncService {
   /// This is intentionally a full, idempotent resync for the EOD workflow.
   /// Already-synced transactions are included so the reporting database is
   /// refreshed from the kiosk's complete local transaction history.
-  Future<ReportingSyncResult> syncAllTransactions() async {
+  Future<ReportingSyncResult> syncAllTransactions({
+    void Function(int completed, int total)? onProgress,
+  }) async {
     final orders = await _orderRepository.getOrders();
-    return _syncOrders(orders);
+    onProgress?.call(0, orders.length);
+    return _syncOrders(orders, onProgress: onProgress);
   }
 
   /// Reads reporting transactions for this kiosk and identifies only those
@@ -453,7 +456,10 @@ class ReportingSyncService {
     return _syncOrders(toSync);
   }
 
-  Future<ReportingSyncResult> _syncOrders(List<KioskOrder> orders) async {
+  Future<ReportingSyncResult> _syncOrders(
+    List<KioskOrder> orders, {
+    void Function(int completed, int total)? onProgress,
+  }) async {
     final settings = await _settingsRepository.load();
     _validateConfiguration(settings);
 
@@ -491,6 +497,8 @@ class ReportingSyncService {
             message: error.toString(),
           ),
         );
+      } finally {
+        onProgress?.call(succeeded + failures.length, orders.length);
       }
     }
 
