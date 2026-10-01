@@ -240,7 +240,7 @@ class KioskReceiptPrinter {
         .where(
           (item) =>
               item.product.kitchenPrepared ||
-              item.options.any((o) => o.kitchenPrepared),
+              item.options.any((o) => !o.automatic),
         )
         .toList(growable: false);
   }
@@ -265,12 +265,11 @@ class KioskReceiptPrinter {
     for (final item in baristaItems) {
       productionHeight += 18;
       if (item.variant != null) productionHeight += 8;
-      productionHeight += item.options.length * 8;
+      productionHeight += item.options.where((o) => !o.automatic).length * 8;
     }
     for (final item in kitchenItems) {
       productionHeight += 18;
       if (item.variant != null) productionHeight += 8;
-      productionHeight += item.options.where((o) => o.kitchenPrepared).length * 8;
     }
     // Customer receipts keep their established 210mm base. Production-only
     // copies use content-driven height so there is no artificial blank space
@@ -373,11 +372,27 @@ class KioskReceiptPrinter {
                           '  ${item.variant!.name}',
                           style: const pw.TextStyle(fontSize: 8),
                         ),
-                      if (item.options.isNotEmpty)
+                      if (item.options.any((o) => !o.automatic))
                         pw.Text(
-                          '  ${item.options.map((o) => o.name).join(' • ')}',
+                          '  ${item.options.where((o) => !o.automatic).map((o) => o.name).join(' • ')}',
                           style: const pw.TextStyle(fontSize: 8),
                         ),
+                      ...item.options.where((o) => o.automatic).map(
+                            (option) => pw.Row(
+                              children: [
+                                pw.Expanded(
+                                  child: pw.Text(
+                                    '  + ${option.displayLabel} (automatic charge)',
+                                    style: const pw.TextStyle(fontSize: 8),
+                                  ),
+                                ),
+                                pw.Text(
+                                  KioskCurrency.formatCode(option.totalPrice),
+                                  style: const pw.TextStyle(fontSize: 8),
+                                ),
+                              ],
+                            ),
+                          ),
                     ],
                   ),
                 ),
@@ -437,19 +452,43 @@ class KioskReceiptPrinter {
                           style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
                         ),
                         if (entry.value.size != null)
+                          pw.Row(
+                            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: pw.CrossAxisAlignment.center,
+                            children: [
+                              pw.Expanded(
+                                child: pw.Text(
+                                  '  ${entry.value.size!.name}'
+                                  '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
+                                  style: const pw.TextStyle(fontSize: 8),
+                                ),
+                              ),
+                              if (entry.value.sugarLevel != null)
+                                pw.Text(
+                                  'SUGAR: ${entry.value.sugarLevel}%',
+                                  style: pw.TextStyle(
+                                    fontSize: 8,
+                                    fontWeight: pw.FontWeight.bold,
+                                  ),
+                                ),
+                            ],
+                          )
+                        else if (entry.value.sugarLevel != null)
                           pw.Text(
-                            '  ${entry.value.size!.name}'
-                            '${entry.value.size!.displayVolume == null ? '' : ' • ${entry.value.size!.displayVolume}'}',
-                            style: const pw.TextStyle(fontSize: 8),
+                            '  SUGAR: ${entry.value.sugarLevel}%',
+                            style: pw.TextStyle(
+                              fontSize: 8,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
                           ),
                         if (entry.value.variant != null)
                           pw.Text(
                             '  ${entry.value.variant!.name}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
-                        ...entry.value.options.map(
+                        ...entry.value.options.where((o) => !o.automatic).map(
                           (option) => pw.Text(
-                            '  + ${option.name}',
+                            '  + ${option.displayLabel}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
                         ),
@@ -503,9 +542,9 @@ class KioskReceiptPrinter {
                             '  ${entry.value.variant!.name}',
                             style: const pw.TextStyle(fontSize: 8),
                           ),
-                        ...entry.value.options.where((o) => o.kitchenPrepared).map(
+                        ...entry.value.options.where((o) => !o.automatic).map(
                               (option) => pw.Text(
-                                '  + ${option.name}',
+                                '  + ${option.displayLabel}',
                                 style: const pw.TextStyle(fontSize: 8),
                               ),
                             ),

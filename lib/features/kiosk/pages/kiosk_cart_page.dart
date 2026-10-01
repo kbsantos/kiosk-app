@@ -89,7 +89,7 @@ class KioskCartPage extends StatelessWidget {
                                       padding: const EdgeInsets.only(top: 5),
                                       child: Text(
                                         item.options
-                                            .map((option) => option.name)
+                                            .map((option) => option.displayLabel)
                                             .join(' • '),
                                       ),
                                     ),

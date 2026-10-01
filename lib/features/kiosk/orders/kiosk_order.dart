@@ -99,6 +99,7 @@ class KioskOrder {
           'productName': item.product.name,
           'productType': item.product.productType,
           'drinkTemperature': item.drinkTemperature,
+          'sugarLevel': item.sugarLevel,
           'groupId': item.product.groupId,
           'groupName': item.product.groupName,
           'kitchenPrepared': item.product.kitchenPrepared,
@@ -120,6 +121,9 @@ class KioskOrder {
                   'price': item.variant!.price,
                 },
           'quantity': item.quantity,
+          // Persist the pre-option price so reloading an order cannot treat
+          // the final unit price as the new base price and add options again.
+          'basePrice': item.basePrice,
           'unitPrice': item.unitPrice,
           'total': item.total,
           'options': item.options
@@ -128,7 +132,9 @@ class KioskOrder {
                   'id': option.id,
                   'name': option.name,
                   'price': option.price,
+                  'quantity': option.quantity,
                   'kitchenPrepared': option.kitchenPrepared,
+                  'automatic': option.automatic,
                 },
               )
               .toList(),
@@ -174,6 +180,12 @@ class KioskOrder {
 
       final productType = data['productType'] as String? ?? 'drink';
       final storedTemperature = data['drinkTemperature'] as String?;
+      final storedSugarLevel = data['sugarLevel'] as int?;
+      final effectiveSugarLevel = productType.toLowerCase() == 'drink'
+          ? (storedSugarLevel == null || storedSugarLevel < 0 || storedSugarLevel > 200
+              ? 100
+              : storedSugarLevel)
+          : null;
       final effectiveTemperature = _legacyDrinkTemperature(
         productType: productType,
         productId: data['productId'] as String,
@@ -183,12 +195,53 @@ class KioskOrder {
         storedTemperature: storedTemperature,
       );
 
+      final rawOptions = (data['options'] as List<dynamic>? ?? const []);
+      final options = rawOptions.map((rawOption) {
+        final option = Map<String, dynamic>.from(rawOption as Map);
+        return KioskOption(
+          id: option['id'] as String,
+          name: option['name'] as String,
+          price: option['price'] as int,
+          quantity: (option['quantity'] as num?)?.toInt() ?? 1,
+          kitchenPrepared: option['kitchenPrepared'] as bool? ?? false,
+          automatic: option['automatic'] as bool? ?? false,
+        );
+      }).toList(growable: false);
+
+      final storedUnitPrice = data['unitPrice'] as int?;
+      final storedBasePrice = data['basePrice'] as int?;
+      final optionTotal = options.fold<int>(
+        0,
+        (sum, option) => sum + option.totalPrice,
+      );
+      // Legacy snapshots did not persist basePrice. For a product without a
+      // size/variant, recover the base price from the final stored unit price
+      // before reconstructing the cart item. This prevents option prices from
+      // being added repeatedly on each reload.
+      final legacyBasePrice = (storedUnitPrice ?? 0) - optionTotal;
+      final basePrice = storedBasePrice ??
+          (legacyBasePrice < 0 ? 0 : legacyBasePrice);
+
+      if (size != null && size.price == null) {
+        size = KioskSize(
+          id: size.id,
+          name: size.name,
+          volumeMl: size.volumeMl,
+          displayVolume: size.displayVolume,
+          price: basePrice,
+        );
+      } else if (variant != null && variant.price == null) {
+        variant = KioskVariant(
+          id: variant.id,
+          name: variant.name,
+          price: basePrice,
+        );
+      }
+
       final product = KioskProduct(
         id: data['productId'] as String,
         name: data['productName'] as String,
-        price: size == null && variant == null
-            ? (data['unitPrice'] as int?)
-            : null,
+        price: size == null && variant == null ? basePrice : null,
         category: category,
         groupId: data['groupId'] as String?,
         groupName: data['groupName'] as String?,
@@ -200,17 +253,6 @@ class KioskOrder {
         variants: variant == null ? const [] : [variant],
       );
 
-      final rawOptions = (data['options'] as List<dynamic>? ?? const []);
-      final options = rawOptions.map((rawOption) {
-        final option = Map<String, dynamic>.from(rawOption as Map);
-        return KioskOption(
-          id: option['id'] as String,
-          name: option['name'] as String,
-          price: option['price'] as int,
-          kitchenPrepared: option['kitchenPrepared'] as bool? ?? false,
-        );
-      }).toList(growable: false);
-
       return KioskCartItem(
         product: product,
         size: size,
@@ -218,6 +260,7 @@ class KioskOrder {
         quantity: data['quantity'] as int? ?? 1,
         options: options,
         drinkTemperature: effectiveTemperature,
+        sugarLevel: effectiveSugarLevel,
       );
     }).toList(growable: false);
 

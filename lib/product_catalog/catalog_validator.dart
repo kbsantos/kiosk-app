@@ -75,6 +75,50 @@ class CatalogValidator {
       }
     }
 
+    final automaticChargeIds = <String>{};
+    for (final charge in catalog.automaticCharges) {
+      if (charge.chargeId.isEmpty || !_id.hasMatch(charge.chargeId)) {
+        error('invalid_charge_id', 'Invalid automatic charge ID: ${charge.chargeId}', charge.chargeId);
+      }
+      if (!automaticChargeIds.add(charge.chargeId)) {
+        error('duplicate_charge_id', 'Duplicate automatic charge ID: ${charge.chargeId}', charge.chargeId);
+      }
+      if (charge.name.trim().isEmpty) {
+        error('missing_charge_name', 'Automatic charge name is required.', charge.chargeId);
+      }
+      if (charge.amount < 0) {
+        error('negative_charge_amount', 'Automatic charge amount cannot be negative.', charge.chargeId);
+      }
+      final scope = charge.scope.trim().toLowerCase();
+      if (!{'category', 'product', 'product_type'}.contains(scope)) {
+        error('invalid_charge_scope', 'Invalid automatic charge scope: ${charge.scope}', charge.chargeId);
+      }
+      final hasTarget = switch (scope) {
+        'category' => charge.categoryIds.isNotEmpty,
+        'product' => charge.productIds.isNotEmpty,
+        'product_type' => charge.productTypes.isNotEmpty,
+        _ => false,
+      };
+      if (!hasTarget) {
+        error('missing_charge_target', 'Automatic charge must have at least one target.', charge.chargeId);
+      }
+      for (final categoryId in charge.categoryIds) {
+        if (!categoryIds.contains(categoryId)) {
+          error('missing_charge_category_reference', 'Automatic charge references missing category: $categoryId', charge.chargeId);
+        }
+      }
+      for (final productId in charge.productIds) {
+        if (!catalog.products.any((p) => p.productId == productId)) {
+          error('missing_charge_product_reference', 'Automatic charge references missing product: $productId', charge.chargeId);
+        }
+      }
+      for (final type in charge.productTypes) {
+        if (!_types.contains(type)) {
+          error('invalid_charge_product_type', 'Automatic charge uses invalid product type: $type', charge.chargeId);
+        }
+      }
+    }
+
     final productIds = <String>{};
     for (final p in catalog.products) {
       if (p.productId.isEmpty || !_id.hasMatch(p.productId)) {

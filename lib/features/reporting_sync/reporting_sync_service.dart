@@ -159,7 +159,7 @@ class ReportingSyncService {
           continue;
         }
 
-        final order = _restoreOrderFromDatabase(json);
+        final order = restoreOrderFromDatabase(json);
         missingOrders.add(order);
         localIds.add(externalId);
       } catch (error) {
@@ -200,7 +200,7 @@ class ReportingSyncService {
     );
   }
 
-  KioskOrder _restoreOrderFromDatabase(Map<String, dynamic> json) {
+  KioskOrder restoreOrderFromDatabase(Map<String, dynamic> json) {
     String textValue(
       dynamic value, {
       required String fallback,
@@ -313,7 +313,9 @@ class ReportingSyncService {
             ),
             name: optionName,
             price: intValue(option['price']),
+            quantity: intValue(option['quantity']) <= 0 ? 1 : intValue(option['quantity']),
             kitchenPrepared: option['kitchen_prepared'] as bool? ?? false,
+            automatic: option['automatic'] as bool? ?? false,
           ),
         );
       }
@@ -325,7 +327,7 @@ class ReportingSyncService {
       final storedUnitPrice = intValue(item['unit_price']);
       final optionTotal = options.fold<int>(
         0,
-        (sum, option) => sum + option.price,
+        (sum, option) => sum + option.totalPrice,
       );
       final basePrice = storedUnitPrice - optionTotal;
 
@@ -351,6 +353,11 @@ class ReportingSyncService {
           KioskCategory.accessories;
 
       final temperature = item['drink_temperature']?.toString().trim();
+      final rawSugarLevel = item['sugar_level'];
+      final parsedSugarLevel = rawSugarLevel is num ? rawSugarLevel.toInt() : int.tryParse(rawSugarLevel?.toString() ?? '');
+      final normalizedSugarLevel = productType.toLowerCase() == 'drink'
+          ? ((parsedSugarLevel == null || parsedSugarLevel < 0 || parsedSugarLevel > 200) ? 100 : parsedSugarLevel)
+          : null;
       final normalizedTemperature =
           temperature == 'hot' || temperature == 'iced'
               ? temperature
@@ -359,7 +366,7 @@ class ReportingSyncService {
       final product = KioskProduct(
         id: productId,
         name: productName,
-        price: size == null && variant == null ? storedUnitPrice : null,
+        price: size == null && variant == null ? basePrice : null,
         category: category,
         groupId: groupId?.isEmpty == true ? null : groupId,
         groupName: groupName?.isEmpty == true ? null : groupName,
@@ -378,6 +385,7 @@ class ReportingSyncService {
           quantity: intValue(item['quantity'], fallback: 1),
           options: List.unmodifiable(options),
           drinkTemperature: normalizedTemperature,
+          sugarLevel: normalizedSugarLevel,
         ),
       );
     }

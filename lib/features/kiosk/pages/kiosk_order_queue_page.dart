@@ -625,7 +625,7 @@ class _OrderItemDetail extends StatelessWidget {
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
                     child: Text(
-                      item.options.map((option) => option.name).join(' • '),
+                      item.options.map((option) => option.displayLabel).join(' • '),
                       style: const TextStyle(
                         color: Colors.black54,
                         fontSize: 13,

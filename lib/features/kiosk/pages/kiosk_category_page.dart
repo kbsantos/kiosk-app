@@ -233,27 +233,73 @@ Future<void> addKioskProductToCart(
     if (selectedVariant == null) return;
   }
 
-  // Product options are product-specific and must be honored regardless of
-  // category or product type. This allows food such as burgers to use the
-  // same Takeout/Dine In/add-on flow as drinks and rice meals.
-  if (product.options.isNotEmpty) {
-    final options = await showModalBottomSheet<List<KioskOption>>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _ProductAddOnsSheet(product: product),
-    );
+  // Automatic charges are mandatory catalog rules. They are included in
+  // every matching cart item and never appear in the customer add-on sheet.
+  // Auto-apply add-ons remain separate: they are selected by default and may
+  // still be removed by the customer.
+  final automaticOptions = product.options
+      .where((option) => option.automatic)
+      .map(
+        (option) => KioskOption(
+          id: option.id,
+          name: option.name,
+          price: option.price,
+          kitchenPrepared: option.kitchenPrepared,
+          automatic: true,
+        ),
+      )
+      .toList(growable: false);
 
-    if (!context.mounted) return;
-    if (options == null) return;
+  final customerOptions = product.options
+      .where((option) => !option.automatic)
+      .toList(growable: false);
+
+  final autoAppliedOptions = customerOptions
+      .where((option) => option.autoApply)
+      .map(
+        (option) => KioskOption(
+          id: option.id,
+          name: option.name,
+          price: option.price,
+          kitchenPrepared: option.kitchenPrepared,
+        ),
+      )
+      .toList(growable: false);
+  final selectableOptions = customerOptions
+      .where((option) => !option.autoApply)
+      .toList(growable: false);
+
+  final isDrink = product.productType.toLowerCase() == 'drink';
+  final needsCustomizationSheet = selectableOptions.isNotEmpty || isDrink;
+
+  if (!needsCustomizationSheet) {
     if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
-      cart.add(product,
-          size: selectedSize, variant: selectedVariant, options: options);
+      cart.add(
+        product,
+        size: selectedSize,
+        variant: selectedVariant,
+        options: [...automaticOptions, ...autoAppliedOptions],
+      );
     }
     return;
   }
 
+  final selection = await showModalBottomSheet<_KioskCustomizationSelection>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _ProductAddOnsSheet(product: product),
+  );
+
+  if (!context.mounted) return;
+  if (selection == null) return;
   if (cart.canAdd(product, size: selectedSize, variant: selectedVariant)) {
-    cart.add(product, size: selectedSize, variant: selectedVariant);
+    cart.add(
+      product,
+      size: selectedSize,
+      variant: selectedVariant,
+      options: [...automaticOptions, ...selection.options],
+      sugarLevel: selection.sugarLevel,
+    );
   }
 }
 
@@ -350,6 +396,16 @@ class _SizePriceRow extends StatelessWidget {
   }
 }
 
+class _KioskCustomizationSelection {
+  final List<KioskOption> options;
+  final int? sugarLevel;
+
+  const _KioskCustomizationSelection({
+    required this.options,
+    this.sugarLevel,
+  });
+}
+
 class _ProductAddOnsSheet extends StatefulWidget {
   final KioskProduct product;
 
@@ -360,12 +416,28 @@ class _ProductAddOnsSheet extends StatefulWidget {
 }
 
 class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
-  final Set<String> _selected = {};
+  late final Set<String> _selected;
+  late final Map<String, int> _quantities;
   bool _showAddOns = false;
+  int _sugarLevel = 100;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.product.options
+        .where((option) => option.autoApply)
+        .map((option) => option.id)
+        .toSet();
+    _quantities = {
+      for (final option in widget.product.options.where((option) => option.autoApply))
+        option.id: 1,
+    };
+  }
 
   @override
   Widget build(BuildContext context) {
     final options = widget.product.options
+        .where((option) => !option.automatic)
         .map(
           (option) => KioskOption(
             id: option.id,
@@ -387,84 +459,188 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'ADD-ONS',
-                style: TextStyle(
+              Text(
+                widget.product.productType.toLowerCase() == 'drink'
+                    ? 'CUSTOMIZE DRINK'
+                    : 'ADD-ONS',
+                style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
-                'Choose any add-ons for ${widget.product.name}',
+                widget.product.productType.toLowerCase() == 'drink'
+                    ? 'Set your drink preferences for ${widget.product.name}'
+                    : 'Choose any add-ons for ${widget.product.name}',
                 style: const TextStyle(
                   fontSize: 15,
                   color: Colors.black54,
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _showAddOns = !_showAddOns;
-                    });
-                  },
-                  icon: Icon(
-                    _showAddOns ? Icons.expand_less : Icons.add_circle_outline,
+              if (widget.product.productType.toLowerCase() == 'drink') ...[
+                const Text(
+                  'SUGAR LEVEL',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
                   ),
-                  label: Text(
-                    _showAddOns ? 'HIDE ADD-ONS' : 'ADD-ONS',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w900,
-                    ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Choose how sweet you want your drink.',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.w600,
                   ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC69214),
-                    side: const BorderSide(
-                      color: Color(0xFFC69214),
-                      width: 2,
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [0, 25, 50, 75, 100].map((level) {
+                    final selected = _sugarLevel == level;
+                    return ChoiceChip(
+                      label: Text(
+                        level == 0
+                            ? '0% No Sugar'
+                            : level == 50
+                                ? '50% Half'
+                                : level == 100
+                                    ? '100% Regular'
+                                    : '$level%',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: selected ? Colors.white : Colors.black87,
+                        ),
+                      ),
+                      selected: selected,
+                      selectedColor: const Color(0xFFC69214),
+                      backgroundColor: const Color(0xFFF5F2ED),
+                      onSelected: (_) => setState(() => _sugarLevel = level),
+                    );
+                  }).toList(growable: false),
+                ),
+                const SizedBox(height: 16),
+              ],
+              if (options.isNotEmpty) ...[
+                const SizedBox(height: 2),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      setState(() {
+                        _showAddOns = !_showAddOns;
+                      });
+                    },
+                    icon: Icon(
+                      _showAddOns ? Icons.expand_less : Icons.add_circle_outline,
                     ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                    label: Text(
+                      _showAddOns ? 'HIDE ADD-ONS' : 'ADD-ONS',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFFC69214),
+                      side: const BorderSide(
+                        color: Color(0xFFC69214),
+                        width: 2,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                   ),
                 ),
-              ),
-              if (_showAddOns) ...[
+              ],
+              if (_showAddOns && options.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Flexible(
                   child: ListView(
                     shrinkWrap: true,
                     children: [
                       ...options.map(
-                        (option) => CheckboxListTile(
-                          value: _selected.contains(option.id),
-                          activeColor: const Color(0xFFC69214),
-                          title: Text(
-                            option.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w700,
+                        (option) {
+                          final selected = _selected.contains(option.id);
+                          final quantity = _quantities[option.id] ?? 1;
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: selected ? const Color(0xFFC69214) : Colors.black12,
+                                  width: selected ? 2 : 1,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                children: [
+                                  Checkbox(
+                                    value: selected,
+                                    activeColor: const Color(0xFFC69214),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          _selected.add(option.id);
+                                          _quantities[option.id] = 1;
+                                        } else {
+                                          _selected.remove(option.id);
+                                          _quantities.remove(option.id);
+                                        }
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          option.name,
+                                          style: const TextStyle(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        Text('+${KioskCurrency.format(option.price)} each'),
+                                      ],
+                                    ),
+                                  ),
+                                  if (selected) ...[
+                                    IconButton(
+                                      tooltip: 'Decrease quantity',
+                                      onPressed: quantity > 1
+                                          ? () => setState(() => _quantities[option.id] = quantity - 1)
+                                          : null,
+                                      icon: const Icon(Icons.remove_circle_outline),
+                                    ),
+                                    SizedBox(
+                                      width: 28,
+                                      child: Text(
+                                        '$quantity',
+                                        textAlign: TextAlign.center,
+                                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      tooltip: 'Increase quantity',
+                                      onPressed: quantity < 99
+                                          ? () => setState(() => _quantities[option.id] = quantity + 1)
+                                          : null,
+                                      icon: const Icon(Icons.add_circle_outline),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
-                          ),
-                          subtitle: Text(
-                            '+${KioskCurrency.format(option.price)}',
-                          ),
-                          onChanged: (value) {
-                            setState(() {
-                              if (value == true) {
-                                _selected.add(option.id);
-                              } else {
-                                _selected.remove(option.id);
-                              }
-                            });
-                          },
-                        ),
+                          );
+                        },
                       ),
                     ],
                   ),
@@ -478,8 +654,24 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
                   onPressed: () {
                     final selected = options
                         .where((option) => _selected.contains(option.id))
+                        .map(
+                          (option) => KioskOption(
+                            id: option.id,
+                            name: option.name,
+                            price: option.price,
+                            quantity: _quantities[option.id] ?? 1,
+                            kitchenPrepared: option.kitchenPrepared,
+                          ),
+                        )
                         .toList(growable: false);
-                    Navigator.of(context).pop(selected);
+                    Navigator.of(context).pop(
+                      _KioskCustomizationSelection(
+                        options: selected,
+                        sugarLevel: widget.product.productType.toLowerCase() == 'drink'
+                            ? _sugarLevel
+                            : null,
+                      ),
+                    );
                   },
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFFC69214),

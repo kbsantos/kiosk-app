@@ -11,6 +11,7 @@ class ProductCatalogRepository {
   static const String _categoriesOverrideKey = 'bigger_brew_catalog_categories_v1';
   static const String _productsOverrideKey = 'bigger_brew_catalog_products_v1';
   static const String _optionDefinitionsOverrideKey = 'bigger_brew_catalog_option_definitions_v1';
+  static const String _automaticChargesOverrideKey = 'bigger_brew_catalog_automatic_charges_v1';
   static const String _auditKey = 'bigger_brew_catalog_audit_v1';
   static const int _maxAuditEntries = 100;
 
@@ -25,6 +26,7 @@ class ProductCatalogRepository {
     final categoryOverride = prefs.getString(_categoriesOverrideKey);
     final productOverride = prefs.getString(_productsOverrideKey);
     final optionOverride = prefs.getString(_optionDefinitionsOverrideKey);
+    final automaticChargesOverride = prefs.getString(_automaticChargesOverrideKey);
     var result = catalog;
 
     if (categoryOverride != null && categoryOverride.isNotEmpty) {
@@ -48,6 +50,16 @@ class ProductCatalogRepository {
         final decoded = jsonDecode(productOverride) as List<dynamic>;
         final products = decoded.map((e) => CatalogProduct.fromJson(Map<String, dynamic>.from(e as Map))).toList(growable: false);
         result = result.copyWith(products: products);
+      } catch (_) {}
+    }
+
+    if (automaticChargesOverride != null && automaticChargesOverride.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(automaticChargesOverride) as List<dynamic>;
+        final charges = decoded
+            .map((e) => CatalogAutomaticCharge.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList(growable: false);
+        result = result.copyWith(automaticCharges: charges);
       } catch (_) {}
     }
 
@@ -83,6 +95,31 @@ class ProductCatalogRepository {
     for (final o in catalog.optionDefinitions) {
       if (o.optionId.trim().isEmpty || !optionIds.add(o.optionId)) throw FormatException('Invalid or duplicate option ID: ${o.optionId}');
       if (o.price != null && o.price! < 0) throw FormatException('Option ${o.optionId} has a negative price.');
+    }
+    final automaticChargeIds = <String>{};
+    for (final charge in catalog.automaticCharges) {
+      if (charge.chargeId.trim().isEmpty || !automaticChargeIds.add(charge.chargeId)) {
+        throw FormatException('Invalid or duplicate automatic charge ID: ${charge.chargeId}');
+      }
+      if (charge.name.trim().isEmpty) {
+        throw FormatException('Automatic charge ${charge.chargeId} must have a name.');
+      }
+      if (charge.amount < 0) {
+        throw FormatException('Automatic charge ${charge.chargeId} has a negative amount.');
+      }
+      final scope = charge.scope.trim().toLowerCase();
+      if (!{'category', 'product', 'product_type'}.contains(scope)) {
+        throw FormatException('Automatic charge ${charge.chargeId} has invalid scope ${charge.scope}.');
+      }
+      final hasTarget = switch (scope) {
+        'category' => charge.categoryIds.isNotEmpty,
+        'product' => charge.productIds.isNotEmpty,
+        'product_type' => charge.productTypes.isNotEmpty,
+        _ => false,
+      };
+      if (!hasTarget) {
+        throw FormatException('Automatic charge ${charge.chargeId} must have at least one target.');
+      }
     }
     final productIds = <String>{};
     for (final p in catalog.products) {
@@ -134,6 +171,7 @@ class ProductCatalogRepository {
     await prefs.setString(_categoriesOverrideKey, jsonEncode(catalog.categories.map((e) => e.toJson()).toList()));
     await prefs.setString(_productsOverrideKey, jsonEncode(catalog.products.map((e) => e.toJson()).toList()));
     await prefs.setString(_optionDefinitionsOverrideKey, jsonEncode(catalog.optionDefinitions.map((e) => e.toJson()).toList()));
+    await prefs.setString(_automaticChargesOverrideKey, jsonEncode(catalog.automaticCharges.map((e) => e.toJson()).toList()));
     await _appendAudit(
       action: auditAction,
       entityType: 'catalog',
@@ -149,6 +187,7 @@ class ProductCatalogRepository {
     await prefs.remove(_categoriesOverrideKey);
     await prefs.remove(_productsOverrideKey);
     await prefs.remove(_optionDefinitionsOverrideKey);
+    await prefs.remove(_automaticChargesOverrideKey);
     await _appendAudit(
       action: 'Reset to bundled catalog',
       entityType: 'catalog',
@@ -235,6 +274,7 @@ class ProductCatalogRepository {
   Future<void> clearOptionDefinitionOverrides() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_optionDefinitionsOverrideKey);
+    await prefs.remove(_automaticChargesOverrideKey);
   }
 
   Future<void> clearProductOverrides() async {

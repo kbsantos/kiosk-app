@@ -5,7 +5,6 @@ import '../orders/kiosk_order.dart';
 import '../orders/kiosk_order_repository.dart';
 import 'kiosk_receipt_page.dart';
 import 'kiosk_eod_pdf_report_page.dart';
-import 'kiosk_monthly_pdf_report_page.dart';
 import 'kiosk_eod_email_service.dart';
 import '../settings/kiosk_settings_repository.dart';
 import '../../reporting_sync/reporting_sync_service.dart';
@@ -200,35 +199,25 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
   }
 
   Future<void> _openPdfReport(List<KioskOrder> orders) async {
-    final synced = await _syncAllTransactionsBeforeEod();
-    if (!synced || !mounted) return;
+    // VIEW PDF REPORT is a local kiosk report. Do not synchronize or read from
+    // the reporting database here. Reload the selected date directly from the
+    // local kiosk repository so the PDF always reflects the date currently
+    // selected on the EOD page.
+    final localOrders = await _repository.getOrdersForDate(_selectedDate);
+    if (!mounted) return;
 
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => KioskEodPdfReportPage(
           date: _selectedDate,
-          orders: orders,
+          orders: localOrders,
         ),
       ),
     );
   }
 
 
-  Future<void> _openMonthlyReport() async {
-    final orders = await _repository.getOrders();
-    if (!mounted) return;
-
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => KioskMonthlyPdfReportPage(
-          month: _selectedDate,
-          orders: orders,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _emailEodReport(List<KioskOrder> orders) async {
+    Future<void> _emailEodReport(List<KioskOrder> orders) async {
     final settings = await _settingsRepository.load();
     if (!settings.emailEnabled) {
       if (!mounted) return;
@@ -616,11 +605,6 @@ class _KioskOrderHistoryPageState extends State<KioskOrderHistoryPage> {
             tooltip: 'Select date',
             onPressed: _pickDate,
             icon: const Icon(Icons.calendar_month_outlined),
-          ),
-          IconButton(
-            tooltip: 'Monthly Report',
-            onPressed: _openMonthlyReport,
-            icon: const Icon(Icons.summarize_outlined),
           ),
           IconButton(
             tooltip: 'Refresh',

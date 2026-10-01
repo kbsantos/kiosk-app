@@ -26,6 +26,7 @@ class ReportingTransactionMapper {
         'variant_id': item.variant?.id,
         'variant_name': item.variant?.name,
         'drink_temperature': item.drinkTemperature,
+        'sugar_level': item.sugarLevel,
         'kitchen_prepared': item.product.kitchenPrepared,
         'quantity': item.quantity,
         'unit_price': item.unitPrice,
@@ -36,7 +37,9 @@ class ReportingTransactionMapper {
                 'option_id': option.id,
                 'option_name': option.name,
                 'price': option.price,
+                'quantity': option.quantity,
                 'kitchen_prepared': option.kitchenPrepared,
+                'automatic': option.automatic,
               },
             )
             .toList(growable: false),

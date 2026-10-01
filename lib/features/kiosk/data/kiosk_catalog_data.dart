@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import '../../../product_catalog/kiosk_catalog_adapter.dart';
 import '../../catalog/store_catalog_sync_service.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
+import '../../../product_catalog/product_catalog_models.dart';
 import '../models/kiosk_models.dart';
 
 /// Kiosk-side catalog loader.
@@ -16,12 +19,117 @@ class KioskCatalogData {
   static const _adapter = KioskCatalogAdapter();
   static final _storeCatalogSync = StoreCatalogSyncService();
 
+  static List<KioskCatalogOption> automaticChargesForProduct(
+    ProductCatalog catalog,
+    KioskCatalogProduct product,
+  ) {
+    final categoryId = product.categoryId;
+    final productType = product.productType.trim().toLowerCase();
+    return catalog.automaticCharges
+        .where((charge) => charge.active && charge.amount >= 0)
+        .where((charge) {
+          switch (charge.scope.trim().toLowerCase()) {
+            case 'product':
+              return charge.productIds.contains(product.productId);
+            case 'product_type':
+              return charge.productTypes.any(
+                (type) => type.trim().toLowerCase() == productType,
+              );
+            case 'category':
+            default:
+              return charge.categoryIds.contains(categoryId);
+          }
+        })
+        .map(
+          (charge) => KioskCatalogOption(
+            id: charge.chargeId,
+            name: charge.name,
+            price: charge.amount.toInt(),
+            automatic: true,
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  static List<ProductOption> _orderedProductOptions(
+    Iterable<ProductOption> options,
+  ) {
+    final indexed = options.toList(growable: false).asMap().entries.toList();
+    indexed.sort((a, b) {
+      final aOrder = a.value.sortOrder;
+      final bOrder = b.value.sortOrder;
+      if (aOrder != null && bOrder != null) {
+        final result = aOrder.compareTo(bOrder);
+        return result != 0 ? result : a.key.compareTo(b.key);
+      }
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return a.key.compareTo(b.key);
+    });
+    return indexed.map((entry) => entry.value).toList(growable: false);
+  }
+
+
+  static List<ProductSize> _orderedSizes(Iterable<ProductSize> sizes) {
+    final indexed = sizes.toList(growable: false).asMap().entries.toList();
+    indexed.sort((a, b) {
+      final aOrder = a.value.sortOrder;
+      final bOrder = b.value.sortOrder;
+      if (aOrder != null && bOrder != null) {
+        final result = aOrder.compareTo(bOrder);
+        return result != 0 ? result : a.key.compareTo(b.key);
+      }
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return a.key.compareTo(b.key);
+    });
+    return indexed.map((entry) => entry.value).toList(growable: false);
+  }
+
+  static List<ProductVariant> _orderedVariants(Iterable<ProductVariant> variants) {
+    final indexed = variants.toList(growable: false).asMap().entries.toList();
+    indexed.sort((a, b) {
+      final aOrder = a.value.sortOrder;
+      final bOrder = b.value.sortOrder;
+      if (aOrder != null && bOrder != null) {
+        final result = aOrder.compareTo(bOrder);
+        return result != 0 ? result : a.key.compareTo(b.key);
+      }
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return a.key.compareTo(b.key);
+    });
+    return indexed.map((entry) => entry.value).toList(growable: false);
+  }
+
+  static List<CatalogOptionDefinition> _orderedOptionDefinitions(
+    Iterable<CatalogOptionDefinition> options,
+  ) {
+    final indexed = options.toList(growable: false).asMap().entries.toList();
+    indexed.sort((a, b) {
+      final aOrder = a.value.sortOrder;
+      final bOrder = b.value.sortOrder;
+      if (aOrder != null && bOrder != null) {
+        final result = aOrder.compareTo(bOrder);
+        return result != 0 ? result : a.key.compareTo(b.key);
+      }
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return a.key.compareTo(b.key);
+    });
+    return indexed.map((entry) => entry.value).toList(growable: false);
+  }
+
   static Future<Map<KioskCategory, List<KioskProduct>>> load() async {
-    // Automatically pull a newer store-master catalog when available. Any
-    // network/configuration failure is intentionally ignored so the kiosk
-    // continues using its last known-good local catalog.
-    await _storeCatalogSync.refreshIfMasterChanged();
+    // The local catalog is the operational source for the kiosk. Load it
+    // first so an unavailable network can never block the product menu.
     final catalog = await _repository.load();
+
+    // Synchronization is best-effort and deliberately kept off the critical
+    // menu-loading path. If connectivity is available, a later call to
+    // load() will pick up the refreshed local catalog. If connectivity is
+    // unavailable, the current last-known-good catalog remains usable.
+    unawaited(_storeCatalogSync.refreshIfMasterChanged());
 
     // Only active categories are exposed to the customer kiosk. The
     // Category Manager's `active` flag is the source of truth for category
@@ -44,19 +152,23 @@ class KioskCatalogData {
         // Product-specific assignments take precedence. When none are
         // assigned, fall back to the active shared option definitions that
         // match the product type (for example, shared `drink` add-ons).
-        final productOptions = product.options.where((option) => option.active).toList(growable: false);
-        final sharedOptions = catalog.optionDefinitions
-            .where((option) =>
+        final productOptions = _orderedProductOptions(
+          product.options.where((option) => option.active),
+        );
+        final sharedOptions = _orderedOptionDefinitions(
+          catalog.optionDefinitions.where(
+            (option) =>
                 option.active &&
                 option.productTypes.any(
                   (type) => type.trim().toLowerCase() ==
                       product.productType.trim().toLowerCase(),
-                ))
-            .toList(growable: false);
+                ),
+          ),
+        );
 
         // Never invent a zero selling price for an option. Only options
         // with an explicit catalog price are customer-selectable.
-        final effectiveOptions = productOptions.isNotEmpty
+        final selectableOptions = productOptions.isNotEmpty
             ? productOptions
                 .where((option) => option.price != null)
                 .map(
@@ -65,6 +177,8 @@ class KioskCatalogData {
                     name: option.name,
                     price: option.price!.toInt(),
                     kitchenPrepared: option.kitchenPrepared,
+                    autoApply: option.autoApply,
+                    sortOrder: option.sortOrder,
                   ),
                 )
             : sharedOptions
@@ -75,8 +189,16 @@ class KioskCatalogData {
                     name: option.name,
                     price: option.price!.toInt(),
                     kitchenPrepared: option.kitchenPrepared,
+                    sortOrder: option.sortOrder,
                   ),
                 );
+        // Store Management is the source of truth for add-on order.
+        // Explicit sortOrder wins; legacy catalogs fall back to their original
+        // array position so existing catalog files remain deterministic.
+        final effectiveOptions = [
+          ...selectableOptions,
+          ...automaticChargesForProduct(catalog, product),
+        ];
 
         products.add(
           KioskProduct(
@@ -104,18 +226,20 @@ class KioskCatalogData {
             productType: product.productType,
             drinkTemperature: product.drinkTemperature,
             kitchenPrepared: product.kitchenPrepared,
-            variants: product.variants
-                .where((variant) => variant.active)
+            variants: _orderedVariants(
+                product.variants.where((variant) => variant.active),
+              )
                 .map(
                   (variant) => KioskVariant(
                     id: variant.variantId,
                     name: variant.name,
                     price: variant.price?.toInt(),
                     active: variant.active,
+                    sortOrder: variant.sortOrder,
                   ),
                 )
                 .toList(growable: false),
-            sizes: product.sizes
+            sizes: _orderedSizes(product.sizes)
                 .map(
                   (size) => KioskSize(
                     id: size.sizeId,
@@ -123,6 +247,7 @@ class KioskCatalogData {
                     volumeMl: size.volumeMl,
                     displayVolume: size.displayVolume,
                     price: size.price?.toInt(),
+                    sortOrder: size.sortOrder,
                   ),
                 )
                 .toList(growable: false),

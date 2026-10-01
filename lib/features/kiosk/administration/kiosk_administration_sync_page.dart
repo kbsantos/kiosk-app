@@ -89,6 +89,54 @@ class _KioskAdministrationSyncPageState
     }
   }
 
+  Future<void> _syncLocalCatalogToMaster() async {
+    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('SYNC LOCAL CATALOG TO MASTER'),
+        content: const Text(
+          'Publish this kiosk current catalog to the store master?\n\n'
+          'Categories, products, sizes, variants, options, and add-ons will '
+          'replace the current store master catalog. The operation is allowed '
+          'only when this kiosk is synchronized to the current master version. '
+          'If Store Management changed the catalog, this sync will be rejected.\n\n'
+          'This does not change local transactions.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('CANCEL'),
+          ),
+          FilledButton.icon(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            icon: const Icon(Icons.cloud_upload_outlined),
+            label: const Text('SYNC LOCAL CATALOG'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _catalogSyncing = true);
+    try {
+      final result = await _catalogSyncService.syncLocalCatalogToMaster();
+      if (!mounted) return;
+      await _showMessage(
+        title: 'LOCAL CATALOG SYNC COMPLETE',
+        message: result.summary,
+      );
+    } catch (error) {
+      if (mounted) await _showError('LOCAL CATALOG SYNC FAILED', error);
+    } finally {
+      if (mounted) setState(() => _catalogSyncing = false);
+    }
+  }
+
   Future<void> _refreshProductCatalog() async {
     if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
       return;
@@ -482,8 +530,28 @@ class _KioskAdministrationSyncPageState
                     const SizedBox(height: 16),
                   ],
                   _SyncCard(
-                    icon: Icons.menu_book_outlined,
-                    title: 'PRODUCT CATALOG',
+                    icon: Icons.cloud_upload_outlined,
+                    title: 'SYNC LOCAL CATALOG TO MASTER',
+                    description:
+                        'Publish this kiosk catalog to the store master. The sync is '
+                        'version-checked so newer Store Management changes are never '
+                        'silently overwritten.',
+                    buttonLabel: _catalogSyncing
+                        ? 'SYNCING LOCAL CATALOG...'
+                        : 'SYNC LOCAL CATALOG TO MASTER',
+                    syncing: _catalogSyncing,
+                    onPressed: (_masterCatalogExists == true &&
+                            !_catalogSyncing &&
+                            !_historicalSyncing &&
+                            !_transactionSyncing &&
+                            !_restoreSyncing)
+                        ? _syncLocalCatalogToMaster
+                        : null,
+                  ),
+                  const SizedBox(height: 16),
+                  _SyncCard(
+                    icon: Icons.cloud_download_outlined,
+                    title: 'REFRESH PRODUCT CATALOG',
                     description:
                         'Download the latest store master catalog to this kiosk. '
                         'Categories, products, sizes, variants, options, and add-ons '

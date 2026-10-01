@@ -75,6 +75,8 @@ class KioskSize {
   final int? volumeMl;
   final String? displayVolume;
   final int? price;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskSize({
     required this.id,
@@ -82,6 +84,7 @@ class KioskSize {
     this.volumeMl,
     this.displayVolume,
     this.price,
+    this.sortOrder,
   });
 
   bool get priceConfigured => price != null;
@@ -92,12 +95,15 @@ class KioskVariant {
   final String name;
   final int? price;
   final bool active;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskVariant({
     required this.id,
     required this.name,
     this.price,
     this.active = true,
+    this.sortOrder,
   });
 
   bool get priceConfigured => price != null;
@@ -107,12 +113,14 @@ class KioskVariant {
     String? name,
     int? price,
     bool? active,
+    int? sortOrder,
   }) {
     return KioskVariant(
       id: id ?? this.id,
       name: name ?? this.name,
       price: price ?? this.price,
       active: active ?? this.active,
+      sortOrder: sortOrder ?? this.sortOrder,
     );
   }
 }
@@ -122,12 +130,21 @@ class KioskCatalogOption {
   final String name;
   final int price;
   final bool kitchenPrepared;
+  /// True when this option should start selected for the product.
+  final bool autoApply;
+  /// True when this option is a mandatory catalog charge automatically added to the order.
+  final bool automatic;
+  /// Customer-visible order inherited from Store Management.
+  final int? sortOrder;
 
   const KioskCatalogOption({
     required this.id,
     required this.name,
     required this.price,
     this.kitchenPrepared = false,
+    this.autoApply = false,
+    this.automatic = false,
+    this.sortOrder,
   });
 }
 
@@ -181,13 +198,25 @@ class KioskOption {
   final String id;
   final String name;
   final int price;
+  /// Number of units of this add-on selected for this cart item.
+  /// Automatic charges remain quantity 1 unless explicitly restored from history.
+  final int quantity;
   final bool kitchenPrepared;
+  /// True when this option is a mandatory catalog charge and cannot be removed by the customer.
+  final bool automatic;
+
+  int get totalPrice => price * quantity;
+
+  String get displayLabel =>
+      quantity > 1 ? '$quantity x $name' : name;
 
   const KioskOption({
     required this.id,
     required this.name,
     required this.price,
+    this.quantity = 1,
     this.kitchenPrepared = false,
+    this.automatic = false,
   });
 }
 
@@ -199,6 +228,9 @@ class KioskCartItem {
   final List<KioskOption> options;
   /// Snapshot from the product at time of sale; null for legacy orders.
   final String? drinkTemperature;
+  /// Customer-selected sugar percentage for drinks. Null for non-drinks.
+  /// 100 means the shop's regular/default sweetness.
+  final int? sugarLevel;
 
   const KioskCartItem({
     required this.product,
@@ -207,12 +239,27 @@ class KioskCartItem {
     this.quantity = 1,
     this.options = const [],
     this.drinkTemperature,
+    this.sugarLevel,
   });
 
   int get basePrice => size?.price ?? variant?.price ?? product.price ?? 0;
 
-  int get unitPrice =>
-      basePrice + options.fold<int>(0, (sum, option) => sum + option.price);
+  int get automaticChargeTotal =>
+      options.where((option) => option.automatic).fold<int>(
+            0,
+            (sum, option) => sum + option.totalPrice,
+          );
+
+  int get selectableOptionTotal =>
+      options.where((option) => !option.automatic).fold<int>(
+            0,
+            (sum, option) => sum + option.totalPrice,
+          );
+
+  int get unitPrice => basePrice + options.fold<int>(
+        0,
+        (sum, option) => sum + option.totalPrice,
+      );
 
   int get total => unitPrice * quantity;
 
@@ -230,7 +277,7 @@ class KioskCartItem {
       parts.add(variant!.name);
     }
     if (options.isNotEmpty) {
-      parts.add(options.map((option) => option.name).join(' • '));
+      parts.add(options.map((option) => option.displayLabel).join(' • '));
     }
     return parts.join(' — ');
   }
@@ -241,6 +288,7 @@ class KioskCartItem {
     KioskVariant? variant,
     List<KioskOption>? options,
     String? drinkTemperature,
+    int? sugarLevel,
   }) {
     return KioskCartItem(
       product: product,
@@ -249,6 +297,7 @@ class KioskCartItem {
       quantity: quantity ?? this.quantity,
       options: options ?? this.options,
       drinkTemperature: drinkTemperature ?? this.drinkTemperature,
+      sugarLevel: sugarLevel ?? this.sugarLevel,
     );
   }
 }
@@ -279,6 +328,7 @@ class KioskCart extends ChangeNotifier {
     KioskSize? size,
     KioskVariant? variant,
     List<KioskOption> options = const [],
+    int? sugarLevel,
   }) {
     if (!canAdd(product, size: size, variant: variant)) return;
 
@@ -289,6 +339,9 @@ class KioskCart extends ChangeNotifier {
         variant: variant,
         options: List.unmodifiable(options),
         drinkTemperature: product.drinkTemperature,
+        sugarLevel: product.productType.toLowerCase() == 'drink'
+            ? (sugarLevel ?? 100)
+            : null,
       ),
     );
 
