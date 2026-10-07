@@ -500,7 +500,7 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [0, 25, 50, 75, 100].map((level) {
+                  children: [0, 10, 25, 50, 75, 100].map((level) {
                     final selected = _sugarLevel == level;
                     return ChoiceChip(
                       label: Text(

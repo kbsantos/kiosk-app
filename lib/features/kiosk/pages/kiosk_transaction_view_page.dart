@@ -239,6 +239,16 @@ class _KioskTransactionViewPageState extends State<KioskTransactionViewPage> {
                           children: [
                             Text(
                                 '${order.items.fold<int>(0, (sum, item) => sum + item.quantity)} item(s)'),
+                            if (order.customerName?.trim().isNotEmpty == true) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Customer: ${order.customerName!.trim()}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  color: Color(0xFF6D4C00),
+                                ),
+                              ),
+                            ],
                             const SizedBox(height: 2),
                             Text(
                                 KioskCurrency.format(order.total),

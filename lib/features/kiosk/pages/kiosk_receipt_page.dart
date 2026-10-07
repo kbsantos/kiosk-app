@@ -113,6 +113,17 @@ class KioskReceiptPage extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
+                if (order.customerName?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'CUSTOMER: ${order.customerName!.trim()}',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 14),
                 _Info(label: 'ORDER TYPE', value: order.orderType),
                 _Info(label: 'PAYMENT', value: order.paymentMethod),

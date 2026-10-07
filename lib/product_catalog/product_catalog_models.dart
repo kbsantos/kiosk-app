@@ -314,6 +314,11 @@ class CatalogProduct {
   final num? price;
   final String? sku;
   final String? recipeRef;
+  final bool trackInventory;
+  final String inventoryUnit;
+  final num inventoryReorderLevel;
+  final bool deductOnSale;
+  final bool allowOutOfStockSales;
   final List<ProductSize> sizes;
   final List<ProductVariant> variants;
   final List<ProductOption> options;
@@ -334,6 +339,11 @@ class CatalogProduct {
     this.price,
     this.sku,
     this.recipeRef,
+    this.trackInventory = false,
+    this.inventoryUnit = 'pcs',
+    this.inventoryReorderLevel = 0,
+    this.deductOnSale = true,
+    this.allowOutOfStockSales = false,
     required this.sizes,
     required this.variants,
     required this.options,
@@ -356,6 +366,11 @@ class CatalogProduct {
       price: json['price'] as num?,
       sku: json['sku']?.toString(),
       recipeRef: json['recipeRef']?.toString(),
+      trackInventory: json['trackInventory'] == true,
+      inventoryUnit: json['inventoryUnit']?.toString() ?? 'pcs',
+      inventoryReorderLevel: (json['inventoryReorderLevel'] as num?) ?? 0,
+      deductOnSale: json['deductOnSale'] != false,
+      allowOutOfStockSales: json['allowOutOfStockSales'] == true,
       sizes: (json['sizes'] as List<dynamic>? ?? const [])
           .map((e) => ProductSize.fromJson(Map<String, dynamic>.from(e as Map)))
           .toList(growable: false),
@@ -375,15 +390,20 @@ class CatalogProduct {
     'active': active, 'available': available, 'kitchenPrepared': kitchenPrepared,
     if (price != null) 'price': price,
     if (sku != null) 'sku': sku, if (recipeRef != null) 'recipeRef': recipeRef,
+    'trackInventory': trackInventory,
+    'inventoryUnit': inventoryUnit,
+    'inventoryReorderLevel': inventoryReorderLevel,
+    'deductOnSale': deductOnSale,
+    'allowOutOfStockSales': allowOutOfStockSales,
     'sizes': sizes.map((x) => x.toJson()).toList(), 'variants': variants.map((x) => x.toJson()).toList(),
     'options': options.map((x) => x.toJson()).toList(),
   };
 
-  CatalogProduct copyWith({String? productId, String? name, String? productType, String? drinkTemperature, String? categoryId, String? groupId, String? groupName, String? description, String? image, bool? active, bool? available, bool? kitchenPrepared, num? price, String? sku, String? recipeRef, List<ProductSize>? sizes, List<ProductVariant>? variants, List<ProductOption>? options}) => CatalogProduct(
+  CatalogProduct copyWith({String? productId, String? name, String? productType, String? drinkTemperature, String? categoryId, String? groupId, String? groupName, String? description, String? image, bool? active, bool? available, bool? kitchenPrepared, num? price, String? sku, String? recipeRef, bool? trackInventory, String? inventoryUnit, num? inventoryReorderLevel, bool? deductOnSale, bool? allowOutOfStockSales, List<ProductSize>? sizes, List<ProductVariant>? variants, List<ProductOption>? options}) => CatalogProduct(
     productId: productId ?? this.productId, name: name ?? this.name, productType: productType ?? this.productType, drinkTemperature: drinkTemperature ?? this.drinkTemperature, categoryId: categoryId ?? this.categoryId,
     groupId: groupId ?? this.groupId, groupName: groupName ?? this.groupName, description: description ?? this.description, image: image ?? this.image,
     active: active ?? this.active, available: available ?? this.available, kitchenPrepared: kitchenPrepared ?? this.kitchenPrepared, price: price ?? this.price, sku: sku ?? this.sku,
-    recipeRef: recipeRef ?? this.recipeRef, sizes: sizes ?? this.sizes, variants: variants ?? this.variants, options: options ?? this.options,
+    recipeRef: recipeRef ?? this.recipeRef, trackInventory: trackInventory ?? this.trackInventory, inventoryUnit: inventoryUnit ?? this.inventoryUnit, inventoryReorderLevel: inventoryReorderLevel ?? this.inventoryReorderLevel, deductOnSale: deductOnSale ?? this.deductOnSale, allowOutOfStockSales: allowOutOfStockSales ?? this.allowOutOfStockSales, sizes: sizes ?? this.sizes, variants: variants ?? this.variants, options: options ?? this.options,
   );
 }
 

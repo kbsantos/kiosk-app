@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../orders/kiosk_order_repository.dart';
 import '../../reporting_sync/reporting_sync_result.dart';
 import '../../reporting_sync/reporting_sync_service.dart';
+import '../../reporting_sync/automatic_transaction_sync_settings.dart';
 import '../../catalog/store_catalog_sync_service.dart';
 
 /// Administrative synchronization tools.
@@ -23,6 +24,12 @@ class _KioskAdministrationSyncPageState
   final KioskOrderRepository _orderRepository = KioskOrderRepository();
   final ReportingSyncService _reportingSyncService = ReportingSyncService();
   final StoreCatalogSyncService _catalogSyncService = StoreCatalogSyncService();
+  final AutomaticTransactionSyncSettingsRepository _autoSyncSettingsRepository =
+      AutomaticTransactionSyncSettingsRepository();
+  AutomaticTransactionSyncSettings _autoSyncSettings =
+      const AutomaticTransactionSyncSettings();
+  bool _autoSyncSettingsLoading = true;
+  bool _autoSyncSettingsSaving = false;
 
   bool _catalogSyncing = false;
   bool _historicalSyncing = false;
@@ -30,12 +37,264 @@ class _KioskAdministrationSyncPageState
   bool _restoreSyncing = false;
   int _transactionSyncCompleted = 0;
   int _transactionSyncTotal = 0;
+  int _transactionSyncChecked = 0;
+  int _transactionSyncCheckTotal = 0;
+  bool _transactionSyncPreparing = true;
   bool? _masterCatalogExists;
 
   @override
   void initState() {
     super.initState();
     _checkMasterCatalog();
+    _loadAutoSyncSettings();
+  }
+
+  static const _syncTimeOptions = <String>[
+    '06:00',
+    '07:00',
+    '08:00',
+    '09:00',
+    '10:00',
+    '11:00',
+    '12:00',
+    '13:00',
+    '14:00',
+    '15:00',
+    '16:00',
+    '17:00',
+    '18:00',
+    '19:00',
+    '20:00',
+    '21:00',
+    '22:00',
+    '23:00',
+  ];
+
+  Future<void> _loadAutoSyncSettings() async {
+    try {
+      final settings = await _autoSyncSettingsRepository.load();
+      if (mounted) {
+        setState(() {
+          _autoSyncSettings = settings;
+          _autoSyncSettingsLoading = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _autoSyncSettingsLoading = false);
+    }
+  }
+
+  Future<void> _saveAutoSyncSettings(
+      AutomaticTransactionSyncSettings settings) async {
+    final minutes = settings.schedule
+        .map((slot) => slot.hour * 60 + slot.minute)
+        .toList()
+      ..sort();
+    if (minutes.toSet().length != 3 ||
+        settings.schedule[0].hour * 60 + settings.schedule[0].minute !=
+            minutes[0] ||
+        settings.schedule[1].hour * 60 + settings.schedule[1].minute !=
+            minutes[1]) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text(
+                'Choose three different times in morning-to-evening order.')),
+      );
+      return;
+    }
+    setState(() {
+      _autoSyncSettings = settings;
+      _autoSyncSettingsSaving = true;
+    });
+    try {
+      await _autoSyncSettingsRepository.save(settings);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Automatic transaction sync settings saved.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) await _showError('COULD NOT SAVE SYNC SETTINGS', error);
+    } finally {
+      if (mounted) setState(() => _autoSyncSettingsSaving = false);
+    }
+  }
+
+  String _formatSyncTime(String value) {
+    final parts = value.split(':');
+    final hour = int.tryParse(parts.first) ?? 8;
+    final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    return '$displayHour:${minute.toString().padLeft(2, '0')} $suffix';
+  }
+
+  Widget _buildAutomaticSyncSettingsCard() {
+    final settings = _autoSyncSettings;
+    Widget timeDropdown(
+        String label, String value, ValueChanged<String?> onChanged) {
+      return DropdownButtonFormField<String>(
+        initialValue: _syncTimeOptions.contains(value) ? value : '08:00',
+        decoration: InputDecoration(
+            labelText: label, border: const OutlineInputBorder()),
+        items: _syncTimeOptions
+            .map((time) => DropdownMenuItem(
+                  value: time,
+                  child: Text(_formatSyncTime(time)),
+                ))
+            .toList(),
+        onChanged: _autoSyncSettingsSaving ? null : onChanged,
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Row(children: [
+              Icon(Icons.schedule, color: Color(0xFFC69214)),
+              SizedBox(width: 10),
+              Expanded(
+                  child: Text('AUTOMATIC TRANSACTION SYNC',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 16))),
+            ]),
+            const SizedBox(height: 8),
+            const Text(
+                'Configure three daily attempts. Settings are saved locally on this kiosk. Scheduled sync runs while the app is running or resumes.',
+                style: TextStyle(color: Colors.black54)),
+            if (_autoSyncSettingsLoading) ...[
+              const SizedBox(height: 16),
+              const LinearProgressIndicator(),
+            ] else ...[
+              SwitchListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Enable automatic sync'),
+                subtitle: Text(settings.enabled
+                    ? 'Scheduled uploads are enabled'
+                    : 'Only manual sync is available'),
+                value: settings.enabled,
+                onChanged: _autoSyncSettingsSaving
+                    ? null
+                    : (enabled) =>
+                        _saveAutoSyncSettings(AutomaticTransactionSyncSettings(
+                          enabled: enabled,
+                          morning: settings.morning,
+                          afternoon: settings.afternoon,
+                          evening: settings.evening,
+                          retryMinutes: settings.retryMinutes,
+                          wifiOnly: settings.wifiOnly,
+                        )),
+              ),
+              const SizedBox(height: 8),
+              Row(children: [
+                Expanded(
+                    child: timeDropdown('Morning', settings.morning, (value) {
+                  if (value != null) {
+                    _saveAutoSyncSettings(AutomaticTransactionSyncSettings(
+                        enabled: settings.enabled,
+                        morning: value,
+                        afternoon: settings.afternoon,
+                        evening: settings.evening,
+                        retryMinutes: settings.retryMinutes,
+                        wifiOnly: settings.wifiOnly));
+                  }
+                })),
+                const SizedBox(width: 10),
+                Expanded(
+                    child:
+                        timeDropdown('Afternoon', settings.afternoon, (value) {
+                  if (value != null) {
+                    _saveAutoSyncSettings(AutomaticTransactionSyncSettings(
+                        enabled: settings.enabled,
+                        morning: settings.morning,
+                        afternoon: value,
+                        evening: settings.evening,
+                        retryMinutes: settings.retryMinutes,
+                        wifiOnly: settings.wifiOnly));
+                  }
+                })),
+              ]),
+              const SizedBox(height: 12),
+              Row(children: [
+                Expanded(
+                    child: timeDropdown('Evening', settings.evening, (value) {
+                  if (value != null) {
+                    _saveAutoSyncSettings(AutomaticTransactionSyncSettings(
+                        enabled: settings.enabled,
+                        morning: settings.morning,
+                        afternoon: settings.afternoon,
+                        evening: value,
+                        retryMinutes: settings.retryMinutes,
+                        wifiOnly: settings.wifiOnly));
+                  }
+                })),
+                const SizedBox(width: 10),
+                Expanded(
+                    child: DropdownButtonFormField<int>(
+                  initialValue: settings.retryMinutes,
+                  decoration: const InputDecoration(
+                      labelText: 'Retry interval',
+                      border: OutlineInputBorder()),
+                  items: <int>[5, 15, 30, 60]
+                      .map((minutes) => DropdownMenuItem(
+                            value: minutes,
+                            child: Text('$minutes minutes'),
+                          ))
+                      .toList(),
+                  onChanged: _autoSyncSettingsSaving
+                      ? null
+                      : (value) {
+                          if (value != null) {
+                            _saveAutoSyncSettings(
+                                AutomaticTransactionSyncSettings(
+                                    enabled: settings.enabled,
+                                    morning: settings.morning,
+                                    afternoon: settings.afternoon,
+                                    evening: settings.evening,
+                                    retryMinutes: value,
+                                    wifiOnly: settings.wifiOnly));
+                          }
+                        },
+                )),
+              ]),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Sync only over Wi-Fi'),
+                subtitle: const Text(
+                    'When enabled, scheduled sync waits until Wi-Fi is connected.'),
+                value: settings.wifiOnly,
+                onChanged: _autoSyncSettingsSaving
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          _saveAutoSyncSettings(
+                              AutomaticTransactionSyncSettings(
+                                  enabled: settings.enabled,
+                                  morning: settings.morning,
+                                  afternoon: settings.afternoon,
+                                  evening: settings.evening,
+                                  retryMinutes: settings.retryMinutes,
+                                  wifiOnly: value));
+                        }
+                      },
+              ),
+              if (_autoSyncSettingsSaving) ...[
+                const SizedBox(height: 12),
+                const LinearProgressIndicator(),
+              ],
+              const SizedBox(height: 8),
+              const Text(
+                  'Times use the kiosk device’s local time. Android may delay background work; this scheduler checks while the app is running.',
+                  style: TextStyle(color: Colors.black54, fontSize: 12)),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _checkMasterCatalog() async {
@@ -48,7 +307,10 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _initializeMasterCatalog() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
       return;
     }
 
@@ -92,7 +354,10 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _syncLocalCatalogToMaster() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
       return;
     }
 
@@ -140,7 +405,10 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _refreshProductCatalog() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) {
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
       return;
     }
 
@@ -197,13 +465,18 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _syncHistoricalDrinks() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
+      return;
+    }
 
     setState(() => _historicalSyncing = true);
 
     try {
-      final preview = await _orderRepository
-          .syncHistoricalDrinkTemperatures(dryRun: true);
+      final preview =
+          await _orderRepository.syncHistoricalDrinkTemperatures(dryRun: true);
 
       if (!mounted) return;
 
@@ -245,15 +518,13 @@ class _KioskAdministrationSyncPageState
 
       if (confirmed != true || !mounted) return;
 
-      final result =
-          await _orderRepository.syncHistoricalDrinkTemperatures();
+      final result = await _orderRepository.syncHistoricalDrinkTemperatures();
 
       if (!mounted) return;
 
       await _showMessage(
         title: 'HISTORICAL SYNC COMPLETE',
-        message:
-            '${result.updatedItems} drink item(s) updated across '
+        message: '${result.updatedItems} drink item(s) updated across '
             '${result.updatedOrders} transaction(s).\n\n'
             'The changes are now stored locally. Run SYNC ALL TRANSACTIONS '
             'to send the updated snapshots to the reporting database.',
@@ -267,7 +538,12 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _syncAllTransactions() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
+      return;
+    }
 
     final confirmed = await showDialog<bool>(
       context: context,
@@ -301,13 +577,25 @@ class _KioskAdministrationSyncPageState
       _transactionSyncing = true;
       _transactionSyncCompleted = 0;
       _transactionSyncTotal = 0;
+      _transactionSyncChecked = 0;
+      _transactionSyncCheckTotal = 0;
+      _transactionSyncPreparing = true;
     });
 
     try {
       final result = await _reportingSyncService.syncAllTransactions(
+        onPreparationProgress: (checked, total) {
+          if (!mounted) return;
+          setState(() {
+            _transactionSyncPreparing = true;
+            _transactionSyncChecked = checked;
+            _transactionSyncCheckTotal = total;
+          });
+        },
         onProgress: (completed, total) {
           if (!mounted) return;
           setState(() {
+            _transactionSyncPreparing = false;
             _transactionSyncCompleted = completed;
             _transactionSyncTotal = total;
           });
@@ -326,13 +614,17 @@ class _KioskAdministrationSyncPageState
   }
 
   Future<void> _restoreMissingTransactions() async {
-    if (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing) return;
+    if (_catalogSyncing ||
+        _historicalSyncing ||
+        _transactionSyncing ||
+        _restoreSyncing) {
+      return;
+    }
 
     setState(() => _restoreSyncing = true);
 
     try {
-      final preview =
-          await _reportingSyncService.previewMissingTransactions();
+      final preview = await _reportingSyncService.previewMissingTransactions();
 
       if (!mounted) return;
 
@@ -406,6 +698,7 @@ class _KioskAdministrationSyncPageState
       if (mounted) setState(() => _restoreSyncing = false);
     }
   }
+
   Future<void> _showReportingResult(ReportingSyncResult result) {
     final details = result.failures.isEmpty
         ? result.attempted == 0
@@ -485,183 +778,191 @@ class _KioskAdministrationSyncPageState
     return Stack(
       children: [
         Scaffold(
-      backgroundColor: const Color(0xFFF5F2ED),
-      appBar: AppBar(
-        backgroundColor: dark,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'ADMINISTRATION SYNC',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 900),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Icon(
-                    Icons.admin_panel_settings_outlined,
-                    size: 72,
-                    color: gold,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'ADMINISTRATION SYNC',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 1,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Administrative maintenance for historical transaction data '
-                    'and reporting synchronization.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.black54),
-                  ),
-                  const SizedBox(height: 28),
-                  if (_masterCatalogExists == false) ...[
-                    _SyncCard(
-                      icon: Icons.cloud_upload_outlined,
-                      title: 'INITIALIZE MASTER CATALOG',
-                      description:
-                          'One-time setup: publish this kiosk current catalog to the store database. This is allowed only when the store has no master catalog yet.',
-                      buttonLabel: _catalogSyncing
-                          ? 'INITIALIZING MASTER...'
-                          : 'INITIALIZE MASTER CATALOG',
-                      syncing: _catalogSyncing,
-                      onPressed: (_catalogSyncing ||
-                              _historicalSyncing ||
-                              _transactionSyncing ||
-                              _restoreSyncing)
-                          ? null
-                          : _initializeMasterCatalog,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                  _SyncCard(
-                    icon: Icons.cloud_upload_outlined,
-                    title: 'SYNC LOCAL CATALOG TO MASTER',
-                    description:
-                        'Publish this kiosk catalog to the store master. The sync is '
-                        'version-checked so newer Store Management changes are never '
-                        'silently overwritten.',
-                    buttonLabel: _catalogSyncing
-                        ? 'SYNCING LOCAL CATALOG...'
-                        : 'SYNC LOCAL CATALOG TO MASTER',
-                    syncing: _catalogSyncing,
-                    onPressed: (_masterCatalogExists == true &&
-                            !_catalogSyncing &&
-                            !_historicalSyncing &&
-                            !_transactionSyncing &&
-                            !_restoreSyncing)
-                        ? _syncLocalCatalogToMaster
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  _SyncCard(
-                    icon: Icons.cloud_download_outlined,
-                    title: 'REFRESH PRODUCT CATALOG',
-                    description:
-                        'Download the latest store master catalog to this kiosk. '
-                        'Categories, products, sizes, variants, options, and add-ons '
-                        'are synchronized to the local operational copy. The database '
-                        'master is never overwritten by this action.',
-                    buttonLabel: _catalogSyncing
-                        ? 'REFRESHING CATALOG...'
-                        : 'REFRESH PRODUCT CATALOG',
-                    syncing: _catalogSyncing,
-                    onPressed: (_catalogSyncing ||
-                            _historicalSyncing ||
-                            _transactionSyncing ||
-                            _restoreSyncing)
-                        ? null
-                        : _refreshProductCatalog,
-                  ),
-                  const SizedBox(height: 16),
-                  _SyncCard(
-                    icon: Icons.thermostat_outlined,
-                    title: 'HISTORICAL DRINK SYNC',
-                    description:
-                        'Update historical drink temperatures using the current '
-                        'product catalog. Only drink temperature data is changed.',
-                    buttonLabel: _historicalSyncing
-                        ? 'SYNCING HISTORICAL...'
-                        : 'SYNC HISTORICAL DRINKS',
-                    syncing: _historicalSyncing,
-                    onPressed: (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing)
-                        ? null
-                        : _syncHistoricalDrinks,
-                  ),
-                  const SizedBox(height: 16),
-                  _SyncCard(
-                    icon: Icons.cloud_sync_outlined,
-                    title: 'REPORTING TRANSACTION SYNC',
-                    description:
-                        'Send every locally stored kiosk transaction to the '
-                        'reporting database using the configured Store ID and '
-                        'Device / Kiosk Code.',
-                    buttonLabel: _transactionSyncing
-                        ? 'SYNCING ALL TRANSACTIONS...'
-                        : 'SYNC ALL TRANSACTIONS',
-                    syncing: _transactionSyncing,
-                    onPressed: (_catalogSyncing || _historicalSyncing || _transactionSyncing || _restoreSyncing)
-                        ? null
-                        : _syncAllTransactions,
-                  ),
-                  const SizedBox(height: 16),
-                  _SyncCard(
-                    icon: Icons.cloud_download_outlined,
-                    title: 'RESTORE MISSING TRANSACTIONS',
-                    description:
-                        'Compare the reporting database with this kiosk and '
-                        'restore transactions that are missing locally. '
-                        'Existing local transactions are never overwritten.',
-                    buttonLabel: _restoreSyncing
-                        ? 'RESTORING TRANSACTIONS...'
-                        : 'RESTORE MISSING TRANSACTIONS',
-                    syncing: _restoreSyncing,
-                    onPressed: (_historicalSyncing ||
-                            _transactionSyncing ||
-                            _restoreSyncing)
-                        ? null
-                        : _restoreMissingTransactions,
-                  ),
-                  const SizedBox(height: 24),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: const [
-                          Icon(Icons.info_outline, color: gold),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Use Historical Drink Sync when historical catalog temperatures need '
-                              'correction. Use Sync All Transactions to push '
-                              'local transaction snapshots to reporting. Use '
-                              'Restore Missing Transactions to recover records '
-                              'that exist in reporting but are missing locally.',
-                              style: TextStyle(color: Colors.black54),
-                            ),
-                          ),
-                        ],
+          backgroundColor: const Color(0xFFF5F2ED),
+          appBar: AppBar(
+            backgroundColor: dark,
+            foregroundColor: Colors.white,
+            title: const Text(
+              'ADMINISTRATION SYNC',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 900),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      const Icon(
+                        Icons.admin_panel_settings_outlined,
+                        size: 72,
+                        color: gold,
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'ADMINISTRATION SYNC',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Administrative maintenance for historical transaction data '
+                        'and reporting synchronization.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                      const SizedBox(height: 28),
+                      if (_masterCatalogExists == false) ...[
+                        _SyncCard(
+                          icon: Icons.cloud_upload_outlined,
+                          title: 'INITIALIZE MASTER CATALOG',
+                          description:
+                              'One-time setup: publish this kiosk current catalog to the store database. This is allowed only when the store has no master catalog yet.',
+                          buttonLabel: _catalogSyncing
+                              ? 'INITIALIZING MASTER...'
+                              : 'INITIALIZE MASTER CATALOG',
+                          syncing: _catalogSyncing,
+                          onPressed: (_catalogSyncing ||
+                                  _historicalSyncing ||
+                                  _transactionSyncing ||
+                                  _restoreSyncing)
+                              ? null
+                              : _initializeMasterCatalog,
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      _SyncCard(
+                        icon: Icons.cloud_upload_outlined,
+                        title: 'SYNC LOCAL CATALOG TO MASTER',
+                        description:
+                            'Publish this kiosk catalog to the store master. The sync is '
+                            'version-checked so newer Store Management changes are never '
+                            'silently overwritten.',
+                        buttonLabel: _catalogSyncing
+                            ? 'SYNCING LOCAL CATALOG...'
+                            : 'SYNC LOCAL CATALOG TO MASTER',
+                        syncing: _catalogSyncing,
+                        onPressed: (_masterCatalogExists == true &&
+                                !_catalogSyncing &&
+                                !_historicalSyncing &&
+                                !_transactionSyncing &&
+                                !_restoreSyncing)
+                            ? _syncLocalCatalogToMaster
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      _SyncCard(
+                        icon: Icons.cloud_download_outlined,
+                        title: 'REFRESH PRODUCT CATALOG',
+                        description:
+                            'Download the latest store master catalog to this kiosk. '
+                            'Categories, products, sizes, variants, options, and add-ons '
+                            'are synchronized to the local operational copy. The database '
+                            'master is never overwritten by this action.',
+                        buttonLabel: _catalogSyncing
+                            ? 'REFRESHING CATALOG...'
+                            : 'REFRESH PRODUCT CATALOG',
+                        syncing: _catalogSyncing,
+                        onPressed: (_catalogSyncing ||
+                                _historicalSyncing ||
+                                _transactionSyncing ||
+                                _restoreSyncing)
+                            ? null
+                            : _refreshProductCatalog,
+                      ),
+                      const SizedBox(height: 16),
+                      _SyncCard(
+                        icon: Icons.thermostat_outlined,
+                        title: 'HISTORICAL DRINK SYNC',
+                        description:
+                            'Update historical drink temperatures using the current '
+                            'product catalog. Only drink temperature data is changed.',
+                        buttonLabel: _historicalSyncing
+                            ? 'SYNCING HISTORICAL...'
+                            : 'SYNC HISTORICAL DRINKS',
+                        syncing: _historicalSyncing,
+                        onPressed: (_catalogSyncing ||
+                                _historicalSyncing ||
+                                _transactionSyncing ||
+                                _restoreSyncing)
+                            ? null
+                            : _syncHistoricalDrinks,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildAutomaticSyncSettingsCard(),
+                      const SizedBox(height: 16),
+                      _SyncCard(
+                        icon: Icons.cloud_sync_outlined,
+                        title: 'REPORTING TRANSACTION SYNC',
+                        description:
+                            'Send every locally stored kiosk transaction to the '
+                            'reporting database using the configured Store ID and '
+                            'Device / Kiosk Code.',
+                        buttonLabel: _transactionSyncing
+                            ? 'SYNCING ALL TRANSACTIONS...'
+                            : 'SYNC ALL TRANSACTIONS',
+                        syncing: _transactionSyncing,
+                        onPressed: (_catalogSyncing ||
+                                _historicalSyncing ||
+                                _transactionSyncing ||
+                                _restoreSyncing)
+                            ? null
+                            : _syncAllTransactions,
+                      ),
+                      const SizedBox(height: 16),
+                      _SyncCard(
+                        icon: Icons.cloud_download_outlined,
+                        title: 'RESTORE MISSING TRANSACTIONS',
+                        description:
+                            'Compare the reporting database with this kiosk and '
+                            'restore transactions that are missing locally. '
+                            'Existing local transactions are never overwritten.',
+                        buttonLabel: _restoreSyncing
+                            ? 'RESTORING TRANSACTIONS...'
+                            : 'RESTORE MISSING TRANSACTIONS',
+                        syncing: _restoreSyncing,
+                        onPressed: (_historicalSyncing ||
+                                _transactionSyncing ||
+                                _restoreSyncing)
+                            ? null
+                            : _restoreMissingTransactions,
+                      ),
+                      const SizedBox(height: 24),
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: const [
+                              Icon(Icons.info_outline, color: gold),
+                              SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  'Use Historical Drink Sync when historical catalog temperatures need '
+                                  'correction. Use Sync All Transactions to push '
+                                  'local transaction snapshots to reporting. Use '
+                                  'Restore Missing Transactions to recover records '
+                                  'that exist in reporting but are missing locally.',
+                                  style: TextStyle(color: Colors.black54),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
         ),
         if (_transactionSyncing)
           Positioned.fill(
@@ -700,7 +1001,25 @@ class _KioskAdministrationSyncPageState
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 20),
-                            if (_transactionSyncTotal > 0) ...[
+                            if (_transactionSyncPreparing) ...[
+                              LinearProgressIndicator(
+                                value: _transactionSyncCheckTotal > 0
+                                    ? _transactionSyncChecked /
+                                        _transactionSyncCheckTotal
+                                    : null,
+                              ),
+                              const SizedBox(height: 12),
+                              Text(
+                                _transactionSyncCheckTotal > 0
+                                    ? 'Checking $_transactionSyncChecked of '
+                                        '$_transactionSyncCheckTotal local transactions…'
+                                    : 'Loading local transactions…',
+                                textAlign: TextAlign.center,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ] else if (_transactionSyncTotal > 0) ...[
                               LinearProgressIndicator(
                                 value: _transactionSyncCompleted /
                                     _transactionSyncTotal,
@@ -708,7 +1027,7 @@ class _KioskAdministrationSyncPageState
                               const SizedBox(height: 12),
                               Text(
                                 '$_transactionSyncCompleted of '
-                                '$_transactionSyncTotal transactions processed',
+                                '$_transactionSyncTotal pending transactions processed',
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   fontWeight: FontWeight.w600,
@@ -716,7 +1035,7 @@ class _KioskAdministrationSyncPageState
                               ),
                             ] else
                               const Text(
-                                'Preparing transaction list…',
+                                'No pending transactions. Finishing…',
                                 textAlign: TextAlign.center,
                               ),
                           ],

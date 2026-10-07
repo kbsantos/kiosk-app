@@ -25,15 +25,30 @@ class ReportingSyncStatusStore {
     return status != null && status.snapshot == snapshotFor(order);
   }
 
-  Future<void> markSynced(KioskOrder order, {DateTime? syncedAt}) async {
+  /// Loads the status index once so large transaction histories do not repeatedly
+  /// decode the same SharedPreferences value for every order.
+  Future<Map<String, ReportingSyncStatus>> getStatuses() => _load();
+
+  /// Saves acknowledgements in one write instead of rewriting the full status
+  /// index after every uploaded transaction.
+  Future<void> markSyncedBatch(
+    Iterable<KioskOrder> orders, {
+    DateTime? syncedAt,
+  }) async {
+    final batchTime = syncedAt ?? DateTime.now();
     final all = await _load();
-    all[order.id] = ReportingSyncStatus(
-      externalTransactionId: order.id,
-      syncedAt: syncedAt ?? DateTime.now(),
-      snapshot: snapshotFor(order),
-    );
-    await _save(all);
+    for (final order in orders) {
+      all[order.id] = ReportingSyncStatus(
+        externalTransactionId: order.id,
+        syncedAt: batchTime,
+        snapshot: snapshotFor(order),
+      );
+    }
+    if (orders.isNotEmpty) await _save(all);
   }
+
+  Future<void> markSynced(KioskOrder order, {DateTime? syncedAt}) =>
+      markSyncedBatch([order], syncedAt: syncedAt);
 
   Future<ReportingSyncProgress> getProgress(List<KioskOrder> orders) async {
     final all = await _load();

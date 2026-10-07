@@ -160,6 +160,11 @@ class KioskProduct {
   final String productType;
   final String? drinkTemperature;
   final bool kitchenPrepared;
+  final bool trackInventory;
+  final String inventoryUnit;
+  final num inventoryReorderLevel;
+  final bool deductOnSale;
+  final bool allowOutOfStockSales;
   final List<KioskSize> sizes;
   final List<KioskVariant> variants;
   final List<KioskCatalogOption> options;
@@ -176,6 +181,11 @@ class KioskProduct {
     this.productType = 'drink',
     this.drinkTemperature,
     this.kitchenPrepared = false,
+    this.trackInventory = false,
+    this.inventoryUnit = 'pcs',
+    this.inventoryReorderLevel = 0,
+    this.deductOnSale = true,
+    this.allowOutOfStockSales = false,
     this.sizes = const [],
     this.variants = const [],
     this.options = const [],

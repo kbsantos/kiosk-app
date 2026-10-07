@@ -88,7 +88,8 @@ class ReportingSyncService {
   }) async {
     final targetDate = date ?? DateTime.now();
     final orders = await _orderRepository.getOrdersForDate(targetDate);
-    return _syncPendingOrders(orders, includeAlreadySynced: includeAlreadySynced);
+    return _syncPendingOrders(orders,
+        includeAlreadySynced: includeAlreadySynced);
   }
 
   /// Syncs every locally stored kiosk order.
@@ -99,20 +100,35 @@ class ReportingSyncService {
     bool includeAlreadySynced = false,
   }) async {
     final orders = await _orderRepository.getOrders();
-    return _syncPendingOrders(orders, includeAlreadySynced: includeAlreadySynced);
+    return _syncPendingOrders(orders,
+        includeAlreadySynced: includeAlreadySynced);
   }
 
-  /// Sends every locally stored transaction to reporting.
+  /// Syncs only locally stored transactions that are pending or whose local
+  /// snapshot changed since the last successful reporting sync.
   ///
-  /// This is intentionally a full, idempotent resync for the EOD workflow.
-  /// Already-synced transactions are included so the reporting database is
-  /// refreshed from the kiosk's complete local transaction history.
+  /// Successfully synced transactions are skipped. If a transaction changes
+  /// locally after syncing, its snapshot no longer matches and it is included
+  /// in the next sync. Explicit restore/reconciliation tools remain available
+  /// for cases where reporting data needs to be repaired.
   Future<ReportingSyncResult> syncAllTransactions({
     void Function(int completed, int total)? onProgress,
+    void Function(int checked, int total)? onPreparationProgress,
   }) async {
     final orders = await _orderRepository.getOrders();
-    onProgress?.call(0, orders.length);
-    return _syncOrders(orders, onProgress: onProgress);
+    final statuses = await _statusStore.getStatuses();
+    final pendingOrders = <KioskOrder>[];
+    onPreparationProgress?.call(0, orders.length);
+    for (var i = 0; i < orders.length; i++) {
+      final order = orders[i];
+      final status = statuses[order.id];
+      final alreadySynced =
+          status != null && status.snapshot == _statusStore.snapshotFor(order);
+      if (!alreadySynced) pendingOrders.add(order);
+      onPreparationProgress?.call(i + 1, orders.length);
+    }
+    onProgress?.call(0, pendingOrders.length);
+    return _syncOrders(pendingOrders, onProgress: onProgress);
   }
 
   /// Reads reporting transactions for this kiosk and identifies only those
@@ -192,7 +208,8 @@ class ReportingSyncService {
   Future<ReportingRestoreResult> restoreMissingTransactions(
     ReportingRestorePreview preview,
   ) async {
-    final restored = await _orderRepository.restoreOrders(preview.missingOrders);
+    final restored =
+        await _orderRepository.restoreOrders(preview.missingOrders);
 
     return ReportingRestoreResult(
       databaseTransactions: preview.databaseTransactions,
@@ -261,9 +278,8 @@ class ReportingSyncService {
         final sizeId = sizeIdRaw?.isNotEmpty == true
             ? sizeIdRaw!
             : 'RESTORED-$externalId-SIZE-$index';
-        final sizeName = sizeNameRaw?.isNotEmpty == true
-            ? sizeNameRaw!
-            : sizeId;
+        final sizeName =
+            sizeNameRaw?.isNotEmpty == true ? sizeNameRaw! : sizeId;
         final volume = item['size_volume_ml'] == null
             ? null
             : intValue(item['size_volume_ml']);
@@ -284,9 +300,8 @@ class ReportingSyncService {
         final variantId = variantIdRaw?.isNotEmpty == true
             ? variantIdRaw!
             : 'RESTORED-$externalId-VARIANT-$index';
-        final variantName = variantNameRaw?.isNotEmpty == true
-            ? variantNameRaw!
-            : variantId;
+        final variantName =
+            variantNameRaw?.isNotEmpty == true ? variantNameRaw! : variantId;
         variant = KioskVariant(
           id: variantId,
           name: variantName,
@@ -294,9 +309,8 @@ class ReportingSyncService {
         );
       }
 
-      final rawOptions = item['options'] is List
-          ? item['options'] as List
-          : const [];
+      final rawOptions =
+          item['options'] is List ? item['options'] as List : const [];
       final options = <KioskOption>[];
       for (var optionIndex = 0;
           optionIndex < rawOptions.length;
@@ -316,7 +330,9 @@ class ReportingSyncService {
             ),
             name: optionName,
             price: intValue(option['price']),
-            quantity: intValue(option['quantity']) <= 0 ? 1 : intValue(option['quantity']),
+            quantity: intValue(option['quantity']) <= 0
+                ? 1
+                : intValue(option['quantity']),
             kitchenPrepared: option['kitchen_prepared'] as bool? ?? false,
             automatic: option['automatic'] as bool? ?? false,
           ),
@@ -357,14 +373,18 @@ class ReportingSyncService {
 
       final temperature = item['drink_temperature']?.toString().trim();
       final rawSugarLevel = item['sugar_level'];
-      final parsedSugarLevel = rawSugarLevel is num ? rawSugarLevel.toInt() : int.tryParse(rawSugarLevel?.toString() ?? '');
+      final parsedSugarLevel = rawSugarLevel is num
+          ? rawSugarLevel.toInt()
+          : int.tryParse(rawSugarLevel?.toString() ?? '');
       final normalizedSugarLevel = productType.toLowerCase() == 'drink'
-          ? ((parsedSugarLevel == null || parsedSugarLevel < 0 || parsedSugarLevel > 200) ? 100 : parsedSugarLevel)
+          ? ((parsedSugarLevel == null ||
+                  parsedSugarLevel < 0 ||
+                  parsedSugarLevel > 200)
+              ? 100
+              : parsedSugarLevel)
           : null;
       final normalizedTemperature =
-          temperature == 'hot' || temperature == 'iced'
-              ? temperature
-              : null;
+          temperature == 'hot' || temperature == 'iced' ? temperature : null;
 
       final product = KioskProduct(
         id: productId,
@@ -445,13 +465,13 @@ class ReportingSyncService {
     List<KioskOrder> orders, {
     required bool includeAlreadySynced,
   }) async {
+    final statuses = await _statusStore.getStatuses();
     final toSync = <KioskOrder>[];
     for (final order in orders) {
+      final status = statuses[order.id];
       final alreadySynced =
-          await _statusStore.isCurrentSnapshotSynced(order);
-      if (includeAlreadySynced || !alreadySynced) {
-        toSync.add(order);
-      }
+          status != null && status.snapshot == _statusStore.snapshotFor(order);
+      if (includeAlreadySynced || !alreadySynced) toSync.add(order);
     }
     return _syncOrders(toSync);
   }
@@ -465,10 +485,12 @@ class ReportingSyncService {
 
     var succeeded = 0;
     final failures = <ReportingSyncFailure>[];
+    final successfullyUploaded = <KioskOrder>[];
+    String? resolvedDeviceId;
 
     for (final order in orders) {
       try {
-        final deviceId = await _resolveDeviceUuid(
+        resolvedDeviceId ??= await _resolveDeviceUuid(
           storeId: settings.storeId.trim(),
           deviceCode: settings.deviceId.trim(),
         );
@@ -476,7 +498,7 @@ class ReportingSyncService {
         final payload = _mapper.mapOrder(
           order: order,
           storeId: settings.storeId.trim(),
-          deviceId: deviceId,
+          deviceId: resolvedDeviceId,
         );
 
         await Supabase.instance.client.rpc(
@@ -484,10 +506,10 @@ class ReportingSyncService {
           params: payload.toRpcParams(),
         );
 
-        // Record the acknowledgement separately from the order itself. If
-        // this metadata write fails, the next manual sync safely retries the
-        // RPC because the database operation is idempotent.
-        await _statusStore.markSynced(order);
+        // Defer local acknowledgement writes until uploads finish. Rewriting
+        // the complete status index after each order becomes quadratic for
+        // large histories and can cause the kiosk to freeze or close.
+        successfullyUploaded.add(order);
         succeeded++;
       } catch (error) {
         failures.add(
@@ -499,6 +521,23 @@ class ReportingSyncService {
         );
       } finally {
         onProgress?.call(succeeded + failures.length, orders.length);
+      }
+    }
+
+    if (successfullyUploaded.isNotEmpty) {
+      try {
+        await _statusStore.markSyncedBatch(successfullyUploaded);
+      } catch (error) {
+        // Cloud uploads succeeded, but local acknowledgements could not be
+        // persisted. Mark them as failures so a later idempotent retry occurs.
+        for (final order in successfullyUploaded) {
+          failures.add(ReportingSyncFailure(
+            externalTransactionId: order.id,
+            orderNumber: order.orderNumber,
+            message: 'Uploaded, but could not save local sync status: $error',
+          ));
+        }
+        succeeded -= successfullyUploaded.length;
       }
     }
 

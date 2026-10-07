@@ -193,6 +193,7 @@ class KioskBluetoothPrinter {
       line('MILKTEA - COFFEE');
       line();
       line(order.orderNumber);
+      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
       line(_time(order.createdAt));
       add('\x1Ba\x00');
       line();
@@ -230,6 +231,7 @@ class KioskBluetoothPrinter {
       line('BARISTA COPY');
       add('\x1BE\x00');
       line('ORDER ${order.orderNumber}');
+      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
       line('-' * width);
 
       for (final item in baristaItems) {
@@ -259,6 +261,7 @@ class KioskBluetoothPrinter {
       line('KITCHEN COPY');
       add('\x1BE\x00');
       line('ORDER ${order.orderNumber}');
+      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
       line('-' * width);
 
       for (final item in kitchenItems) {

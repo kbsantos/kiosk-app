@@ -22,6 +22,7 @@ extension KioskOrderStatusX on KioskOrderStatus {
 class KioskOrder {
   final String id;
   final String orderNumber;
+  final String? customerName;
   final DateTime createdAt;
   final String orderType;
   final String paymentMethod;
@@ -37,6 +38,7 @@ class KioskOrder {
   const KioskOrder({
     required this.id,
     required this.orderNumber,
+    this.customerName,
     required this.createdAt,
     required this.orderType,
     required this.paymentMethod,
@@ -65,6 +67,7 @@ class KioskOrder {
     return KioskOrder(
       id: id,
       orderNumber: orderNumber,
+      customerName: customerName,
       createdAt: createdAt,
       orderType: orderType ?? this.orderType,
       paymentMethod: paymentMethod ?? this.paymentMethod,
@@ -83,6 +86,7 @@ class KioskOrder {
     return {
       'id': id,
       'orderNumber': orderNumber,
+      'customerName': customerName,
       'createdAt': createdAt.toIso8601String(),
       'orderType': orderType,
       'paymentMethod': paymentMethod,
@@ -267,6 +271,9 @@ class KioskOrder {
     return KioskOrder(
       id: json['id'] as String,
       orderNumber: json['orderNumber'] as String,
+      customerName: (json['customerName'] as String?)?.trim().isEmpty == true
+          ? null
+          : (json['customerName'] as String?)?.trim(),
       createdAt: DateTime.parse(json['createdAt'] as String),
       orderType: json['orderType'] as String? ?? 'Take Out',
       paymentMethod: json['paymentMethod'] as String? ?? 'Pay at Counter',

@@ -24,6 +24,7 @@ class KioskCheckoutPage extends StatefulWidget {
 
 class _KioskCheckoutPageState extends State<KioskCheckoutPage> {
   String _orderType = 'Take Out';
+  final TextEditingController _customerNameController = TextEditingController();
   bool _submitting = false;
   final KioskOrderRepository _orders = KioskOrderRepository();
   final KioskPaymentProcessor _payment = const CounterPaymentProcessor();
@@ -101,6 +102,9 @@ class _KioskCheckoutPageState extends State<KioskCheckoutPage> {
     try {
       order = await _orders.createOrder(
         cart: widget.cart,
+        customerName: _customerNameController.text.trim().isEmpty
+            ? null
+            : _customerNameController.text.trim(),
         orderType: _orderType,
         paymentMethod: _paymentMethod.label,
         paymentStatus: paymentStatus,
@@ -372,6 +376,12 @@ class _KioskCheckoutPageState extends State<KioskCheckoutPage> {
   }
 
   @override
+  void dispose() {
+    _customerNameController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     const gold = Color(0xFFC69214);
     const dark = Color(0xFF171717);
@@ -410,6 +420,27 @@ class _KioskCheckoutPageState extends State<KioskCheckoutPage> {
                       style: TextStyle(
                         fontSize: 21,
                         fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    TextField(
+                      controller: _customerNameController,
+                      textCapitalization: TextCapitalization.words,
+                      enabled: !_submitting,
+                      decoration: InputDecoration(
+                        labelText: 'Customer Name (optional)',
+                        hintText: 'Enter customer name',
+                        prefixIcon: const Icon(Icons.person_outline),
+                        suffixIcon: IconButton(
+                          tooltip: 'Clear customer name',
+                          onPressed: _submitting
+                              ? null
+                              : _customerNameController.clear,
+                          icon: const Icon(Icons.clear),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 14),

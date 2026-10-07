@@ -212,6 +212,7 @@ class KioskOrderRepository {
   Future<KioskOrder> createOrder({
     required KioskCart cart,
     required String orderType,
+    String? customerName,
     String paymentMethod = 'Pay at Counter',
     String paymentStatus = 'pending',
     String orderMode = 'Customer',
@@ -241,6 +242,7 @@ class KioskOrderRepository {
     final order = KioskOrder(
       id: '${now.microsecondsSinceEpoch}-$orderNumber',
       orderNumber: orderNumber,
+      customerName: customerName,
       createdAt: now,
       orderType: orderType,
       paymentMethod: paymentMethod,

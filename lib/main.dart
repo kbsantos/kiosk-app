@@ -1,13 +1,15 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'core/config/supabase_config.dart';
 
 import 'features/kiosk/kiosk_idle_timeout.dart';
 import 'features/kiosk/pages/kiosk_home_page.dart';
 import 'features/kiosk/settings/kiosk_settings_repository.dart';
 import 'features/kiosk/currency/kiosk_currency.dart';
+import 'features/reporting_sync/automatic_transaction_sync_scheduler.dart';
+import 'core/config/supabase_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +35,12 @@ Future<void> main() async {
   final settings = await KioskSettingsRepository().load();
   KioskCurrency.setCode(settings.currencyCode);
   runApp(const BiggerBrewKioskApp());
+
+  // Scheduled reporting sync is non-blocking and only runs when Supabase is
+  // configured. It never gates kiosk startup or local/offline transactions.
+  if (SupabaseConfig.isConfigured) {
+    unawaited(AutomaticTransactionSyncScheduler().start());
+  }
 }
 
 class BiggerBrewKioskApp extends StatelessWidget {

@@ -329,6 +329,19 @@ class KioskReceiptPrinter {
                   ),
                 ),
               ),
+              if (order.customerName?.trim().isNotEmpty == true) ...[
+                pw.SizedBox(height: 4),
+                pw.Center(
+                  child: pw.Text(
+                    'CUSTOMER: ${order.customerName!.trim()}',
+                    textAlign: pw.TextAlign.center,
+                    style: pw.TextStyle(
+                      fontSize: 10,
+                      fontWeight: pw.FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
               pw.SizedBox(height: 4),
               pw.Center(
                 child: pw.Text(
@@ -439,6 +452,14 @@ class KioskReceiptPrinter {
                     ),
                   ),
                 ),
+                if (order.customerName?.trim().isNotEmpty == true)
+                  pw.Center(
+                    child: pw.Text(
+                      'CUSTOMER: ${order.customerName!.trim()}',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ),
                 ...baristaItems.asMap().entries.map(
                   (entry) => pw.Padding(
                     padding: pw.EdgeInsets.only(
@@ -517,6 +538,14 @@ class KioskReceiptPrinter {
                     ),
                   ),
                 ),
+                if (order.customerName?.trim().isNotEmpty == true)
+                  pw.Center(
+                    child: pw.Text(
+                      'CUSTOMER: ${order.customerName!.trim()}',
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 9),
+                    ),
+                  ),
                 ...kitchenItems.asMap().entries.map(
                   (entry) => pw.Padding(
                     padding: pw.EdgeInsets.only(
