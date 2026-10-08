@@ -9,6 +9,7 @@ import 'package:printing/printing.dart';
 import '../models/kiosk_models.dart';
 import '../orders/kiosk_order.dart';
 import 'kiosk_bluetooth_printer.dart';
+import '../printing/kiosk_production_copy_rules.dart';
 import '../settings/kiosk_settings_repository.dart';
 
 class KioskReceiptPrinter {
@@ -236,13 +237,7 @@ class KioskReceiptPrinter {
   }
 
   static List<KioskCartItem> _kitchenItems(KioskOrder order) {
-    return order.items
-        .where(
-          (item) =>
-              item.product.kitchenPrepared ||
-              item.options.any((o) => !o.automatic),
-        )
-        .toList(growable: false);
+    return KioskProductionCopyRules.kitchenItems(order);
   }
 
   static Future<Uint8List> buildPdf(

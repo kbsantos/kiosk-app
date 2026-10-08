@@ -4,6 +4,7 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../currency/kiosk_currency.dart';
 
 import '../orders/kiosk_order.dart';
+import '../printing/kiosk_production_copy_rules.dart';
 
 /// Bluetooth thermal-printer integration used by the XP-58H.
 ///
@@ -175,13 +176,7 @@ class KioskBluetoothPrinter {
     final baristaItems = order.items
         .where((item) => item.product.productType.toLowerCase() == 'drink')
         .toList(growable: false);
-    final kitchenItems = order.items
-        .where(
-          (item) =>
-              item.product.kitchenPrepared ||
-              item.options.any((option) => !option.automatic),
-        )
-        .toList(growable: false);
+    final kitchenItems = KioskProductionCopyRules.kitchenItems(order);
 
     add('\x1B@');
     add('\x1Ba\x01');
