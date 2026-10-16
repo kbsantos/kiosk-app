@@ -73,6 +73,16 @@ class ReportingSyncStatusStore {
     );
   }
 
+  /// Removes local acknowledgement metadata for transactions that have been
+  /// safely purged from the local transaction archive.
+  Future<void> removeStatuses(Iterable<String> transactionIds) async {
+    final ids = transactionIds.toSet();
+    if (ids.isEmpty) return;
+    final all = await _load();
+    all.removeWhere((id, _) => ids.contains(id));
+    await _save(all);
+  }
+
   Future<Map<String, ReportingSyncStatus>> _load() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_key);

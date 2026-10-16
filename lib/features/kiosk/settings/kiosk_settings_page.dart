@@ -8,6 +8,9 @@ import 'package:print_bluetooth_thermal/print_bluetooth_thermal.dart';
 import '../currency/kiosk_currency.dart';
 import 'kiosk_settings_repository.dart';
 import '../staff/kiosk_staff_access_repository.dart';
+import '../orders/kiosk_order_repository.dart';
+import '../../reporting_sync/reporting_sync_status_store.dart';
+import '../../reporting_sync/transaction_retention_settings.dart';
 
 class KioskSettingsPage extends StatefulWidget {
   const KioskSettingsPage({super.key});
@@ -18,6 +21,17 @@ class KioskSettingsPage extends StatefulWidget {
 
 class _KioskSettingsPageState extends State<KioskSettingsPage> {
   final KioskSettingsRepository _repository = KioskSettingsRepository();
+  final TransactionRetentionSettingsRepository _retentionRepository =
+      TransactionRetentionSettingsRepository();
+  final KioskOrderRepository _orderRepository = KioskOrderRepository();
+  final ReportingSyncStatusStore _syncStatusStore = ReportingSyncStatusStore();
+  TransactionRetentionSettings _retentionSettings =
+      const TransactionRetentionSettings();
+  bool _retentionLoading = true;
+  bool _retentionSaving = false;
+  bool _purgingTransactions = false;
+  DateTime? _lastPurgeAt;
+  int _lastPurgeCount = 0;
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _storeIdController = TextEditingController();
   final TextEditingController _deviceIdController = TextEditingController();
@@ -43,6 +57,7 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
   void initState() {
     super.initState();
     _load();
+    _loadRetentionSettings();
     _loadPrinters();
     _loadBluetoothPrinters();
   }
@@ -747,6 +762,152 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
     }
   }
 
+  Future<void> _loadRetentionSettings() async {
+    try {
+      final settings = await _retentionRepository.load();
+      final lastAt = await _retentionRepository.lastPurgeAt();
+      final lastCount = await _retentionRepository.lastPurgeCount();
+      if (!mounted) return;
+      setState(() {
+        _retentionSettings = settings;
+        _lastPurgeAt = lastAt;
+        _lastPurgeCount = lastCount;
+        _retentionLoading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _retentionLoading = false);
+    }
+  }
+
+  Future<void> _saveRetentionSettings(TransactionRetentionSettings settings) async {
+    setState(() {
+      _retentionSaving = true;
+      _retentionSettings = settings;
+    });
+    try {
+      await _retentionRepository.save(settings);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Transaction retention settings saved.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('COULD NOT SAVE RETENTION SETTINGS'),
+            content: SelectableText(error.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('CLOSE'))],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _retentionSaving = false);
+    }
+  }
+
+  Future<void> _purgeOldTransactions() async {
+    if (_purgingTransactions) return;
+    setState(() => _purgingTransactions = true);
+    try {
+      final cutoff = DateTime.now().subtract(Duration(days: _retentionSettings.retentionDays));
+      final eligible = await _orderRepository.purgeOldSyncedTransactions(
+        olderThan: cutoff,
+        statusStore: _syncStatusStore,
+        dryRun: true,
+      );
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('PURGE OLD SYNCED TRANSACTIONS?'),
+          content: Text('This will remove $eligible local transaction(s) older than ${_retentionSettings.retentionDays} days only when their current snapshot is confirmed synced and the transaction is completed or cancelled. Unsynced, active, and unverifiable records will be kept. Ensure your Supabase backup policy is in place before continuing.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('CANCEL')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('PURGE LOCAL COPIES')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final removed = await _orderRepository.purgeOldSyncedTransactions(
+        olderThan: cutoff,
+        statusStore: _syncStatusStore,
+      );
+      await _retentionRepository.recordPurge(removed);
+      final lastAt = await _retentionRepository.lastPurgeAt();
+      if (!mounted) return;
+      setState(() {
+        _lastPurgeAt = lastAt;
+        _lastPurgeCount = removed;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Purged $removed old synced local transaction(s).')),
+      );
+    } catch (error) {
+      if (mounted) {
+        await showDialog<void>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('TRANSACTION PURGE FAILED'),
+            content: SelectableText(error.toString()),
+            actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('CLOSE'))],
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _purgingTransactions = false);
+    }
+  }
+
+  Widget _buildTransactionRetentionSection() {
+    final settings = _retentionSettings;
+    final lastRun = _lastPurgeAt == null
+        ? 'No purge has run yet.'
+        : 'Last purge: ${_lastPurgeAt!.toLocal()} · $_lastPurgeCount removed';
+    return _Section(
+      title: 'LOCAL TRANSACTION RETENTION',
+      icon: Icons.auto_delete_outlined,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Only old local copies confirmed synced can be purged. Active, unsynced, modified, and unverifiable transactions are preserved.'),
+          if (_retentionLoading)
+            const Padding(padding: EdgeInsets.only(top: 16), child: LinearProgressIndicator())
+          else ...[
+            SwitchListTile.adaptive(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Enable automatic purge after successful sync'),
+              subtitle: Text(settings.automaticPurgeEnabled ? 'Eligible old synced transactions can be removed automatically.' : 'Automatic deletion is off; use Purge Now when needed.'),
+              value: settings.automaticPurgeEnabled,
+              onChanged: _retentionSaving ? null : (value) => _saveRetentionSettings(settings.copyWith(automaticPurgeEnabled: value)),
+            ),
+            DropdownButtonFormField<int>(
+              initialValue: settings.retentionDays,
+              decoration: const InputDecoration(labelText: 'Keep local transaction data for', border: OutlineInputBorder()),
+              items: const [30, 60, 90, 180, 365].map((days) => DropdownMenuItem<int>(value: days, child: Text('$days days'))).toList(),
+              onChanged: _retentionSaving ? null : (value) {
+                if (value != null) _saveRetentionSettings(settings.copyWith(retentionDays: value));
+              },
+            ),
+            const SizedBox(height: 10),
+            Text(lastRun, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _retentionSaving || _purgingTransactions ? null : _purgeOldTransactions,
+                icon: _purgingTransactions ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.delete_sweep_outlined),
+                label: Text(_purgingTransactions ? 'PURGING...' : 'PURGE NOW'),
+              ),
+            ),
+            if (_retentionSaving) const LinearProgressIndicator(),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const dark = Color(0xFF171717);
@@ -1303,6 +1464,8 @@ class _KioskSettingsPageState extends State<KioskSettingsPage> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 16),
+                _buildTransactionRetentionSection(),
                 const SizedBox(height: 16),
                 _Section(
                   title: 'EOD REPORT EMAIL',

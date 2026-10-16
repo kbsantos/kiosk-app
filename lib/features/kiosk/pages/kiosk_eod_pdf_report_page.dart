@@ -103,6 +103,9 @@ class KioskEodPdfReportPage extends StatelessWidget {
           _section('SALES SUMMARY'),
           _summaryTable(),
           pw.SizedBox(height: 16),
+          _section('PRODUCT TYPE SALES BREAKDOWN'),
+          _productTypeSalesTable(),
+          pw.SizedBox(height: 16),
           _section('PAYMENT BREAKDOWN'),
           _paymentTable(),
           pw.SizedBox(height: 16),
@@ -197,6 +200,75 @@ class KioskEodPdfReportPage extends StatelessWidget {
         _cell(b, bold: true),
         _cell(bv, bold: true, align: pw.TextAlign.right),
       ]);
+
+  pw.Widget _productTypeSalesTable() {
+    // Use the product type saved with each completed order item so the report
+    // reflects the transaction snapshot rather than today's catalog settings.
+    final breakdown = <String, Map<String, int>>{};
+
+    for (final order in completed) {
+      for (final item in order.items) {
+        final rawType = item.product.productType.trim();
+        final type = rawType.isEmpty ? 'Uncategorized' : rawType;
+        final key = type.toLowerCase();
+        final row = breakdown.putIfAbsent(key, () => {
+          'quantity': 0,
+          'sales': 0,
+        });
+        row['quantity'] = row['quantity']! + item.quantity;
+        row['sales'] = row['sales']! + item.total;
+      }
+    }
+
+    if (breakdown.isEmpty) {
+      return _empty('No completed product sales.');
+    }
+
+    final rows = <pw.TableRow>[
+      _headerRow(['Product Type', 'Items Sold', 'Sales']),
+    ];
+    var totalQuantity = 0;
+    var totalSales = 0;
+    final keys = breakdown.keys.toList()..sort();
+    for (final key in keys) {
+      final row = breakdown[key]!;
+      final quantity = row['quantity']!;
+      final amount = row['sales']!;
+      totalQuantity += quantity;
+      totalSales += amount;
+      final label = key == 'drink'
+          ? 'Drinks'
+          : key == 'meal'
+              ? 'Meals'
+              : key == 'accessory'
+                  ? 'Accessories'
+                  : key[0].toUpperCase() + key.substring(1);
+      rows.add(pw.TableRow(children: [
+        _cell(label, bold: true),
+        _cell('$quantity', align: pw.TextAlign.right),
+        _cell(_peso(amount), align: pw.TextAlign.right),
+      ]));
+    }
+
+    rows.add(pw.TableRow(children: [
+      _cell('TOTAL PRODUCT SALES', bold: true),
+      _cell('$totalQuantity', bold: true, align: pw.TextAlign.right),
+      _cell(_peso(totalSales), bold: true, align: pw.TextAlign.right),
+    ]));
+
+    return pw.Table(
+      border: pw.TableBorder.all(
+        color: PdfColor.fromHex('#D8D1C7'),
+        width: .4,
+      ),
+      columnWidths: const {
+        0: pw.FlexColumnWidth(3),
+        1: pw.FlexColumnWidth(1.1),
+        2: pw.FlexColumnWidth(1.4),
+      },
+      children: rows,
+    );
+  }
 
   pw.Widget _paymentTable() {
     final methods = _paymentMethods();

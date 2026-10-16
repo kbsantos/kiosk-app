@@ -6,12 +6,14 @@ import '../models/kiosk_models.dart';
 class KioskOrderPanel extends StatelessWidget {
   final KioskCart cart;
   final VoidCallback? onCheckout;
+  final ValueChanged<int>? onEditItem;
   final bool showHeader;
 
   const KioskOrderPanel({
     super.key,
     required this.cart,
     this.onCheckout,
+    this.onEditItem,
     this.showHeader = true,
   });
 
@@ -121,7 +123,12 @@ class KioskOrderPanel extends StatelessWidget {
                   separatorBuilder: (_, __) => const SizedBox(height: 9),
                   itemBuilder: (_, index) {
                     final item = cart.items[index];
-                    return _OrderItemTile(cart: cart, index: index, item: item);
+                    return _OrderItemTile(
+                      cart: cart,
+                      index: index,
+                      item: item,
+                      onTap: onEditItem == null ? null : () => onEditItem!(index),
+                    );
                   },
                 );
               },
@@ -138,23 +145,30 @@ class _OrderItemTile extends StatelessWidget {
   final KioskCart cart;
   final int index;
   final KioskCartItem item;
+  final VoidCallback? onTap;
 
   const _OrderItemTile({
     required this.cart,
     required this.index,
     required this.item,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F6F2),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE8E0D6)),
-      ),
-      child: Column(
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8F6F2),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8E0D6)),
+          ),
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -235,7 +249,9 @@ class _OrderItemTile extends StatelessWidget {
               ),
             ],
           ),
-        ],
+          ],
+          ),
+        ),
       ),
     );
   }

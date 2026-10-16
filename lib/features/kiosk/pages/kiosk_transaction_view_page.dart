@@ -172,7 +172,8 @@ class _KioskTransactionViewPageState extends State<KioskTransactionViewPage> {
     try {
       await _repository.modifyTransaction(order.id,
           items: edited.items, reason: reason,
-          orderType: edited.orderType, paymentMethod: edited.paymentMethod);
+          orderType: edited.orderType, paymentMethod: edited.paymentMethod,
+          customerName: edited.customerName);
       if (!mounted) return;
       setState(_reload);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -317,11 +318,13 @@ class _TransactionEditResult {
   final List<KioskCartItem> items;
   final String orderType;
   final String paymentMethod;
+  final String customerName;
 
   const _TransactionEditResult({
     required this.items,
     required this.orderType,
     required this.paymentMethod,
+    required this.customerName,
   });
 }
 
@@ -337,16 +340,26 @@ class _TransactionEditorState extends State<_TransactionEditor> {
   late List<KioskCartItem> _items;
   late String _orderType;
   late String _paymentMethod;
+  late final TextEditingController _customerNameController;
   bool _addingProduct = false;
 
   @override
   void initState() {
     super.initState();
     _items = List.of(widget.order.items);
+    _customerNameController = TextEditingController(
+      text: widget.order.customerName ?? '',
+    );
     _orderType = widget.order.orderType == 'Dine In' ? 'Dine In' : 'Take Out';
     _paymentMethod = const {'GCash', 'Cash', 'Others'}.contains(widget.order.paymentMethod)
         ? widget.order.paymentMethod
         : 'Others';
+  }
+
+  @override
+  void dispose() {
+    _customerNameController.dispose();
+    super.dispose();
   }
 
   void _changeQuantity(int index, int delta) {
@@ -425,6 +438,18 @@ class _TransactionEditorState extends State<_TransactionEditor> {
                   label: const Text('ADD PRODUCT'),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _customerNameController,
+              textCapitalization: TextCapitalization.words,
+              decoration: const InputDecoration(
+                labelText: 'Customer name (optional)',
+                hintText: 'Add or update customer name',
+                prefixIcon: Icon(Icons.person_outline),
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
             ),
             const SizedBox(height: 12),
             Align(
@@ -529,6 +554,7 @@ class _TransactionEditorState extends State<_TransactionEditor> {
                     items: List<KioskCartItem>.unmodifiable(_items),
                     orderType: _orderType,
                     paymentMethod: _paymentMethod,
+                    customerName: _customerNameController.text.trim(),
                   )),
           child: const Text('REVIEW & SAVE'),
         ),

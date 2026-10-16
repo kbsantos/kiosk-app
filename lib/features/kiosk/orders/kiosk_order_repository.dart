@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/kiosk_models.dart';
 import '../../../product_catalog/product_catalog_repository.dart';
 import 'kiosk_order.dart';
+import '../../reporting_sync/reporting_sync_status_store.dart';
 
 class HistoricalDrinkTemperatureSyncResult {
   final int updatedOrders;
@@ -188,6 +189,50 @@ class KioskOrderRepository {
     await prefs.setInt(_sequenceKey, sequence);
   }
 
+  /// Removes only old, terminal transactions whose exact current snapshot has
+  /// been acknowledged by the reporting database. Malformed records and all
+  /// pending/active/modified-unsynced transactions are preserved.
+  Future<int> purgeOldSyncedTransactions({
+    required DateTime olderThan,
+    required ReportingSyncStatusStore statusStore,
+    bool dryRun = false,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final rawOrders = prefs.getStringList(_ordersKey) ?? const <String>[];
+    final statuses = await statusStore.getStatuses();
+    final keepRaw = <String>[];
+    final purgedIds = <String>[];
+
+    for (final raw in rawOrders) {
+      try {
+        final order = KioskOrder.fromJson(
+          Map<String, dynamic>.from(jsonDecode(raw) as Map),
+        );
+        final terminal = order.status == KioskOrderStatus.completed ||
+            order.status == KioskOrderStatus.cancelled;
+        final status = statuses[order.id];
+        final syncedSnapshot = status != null &&
+            status.snapshot == statusStore.snapshotFor(order);
+        final isOld = order.createdAt.isBefore(olderThan);
+
+        if (terminal && isOld && syncedSnapshot) {
+          purgedIds.add(order.id);
+        } else {
+          keepRaw.add(raw);
+        }
+      } catch (_) {
+        // Never delete a record that cannot be safely identified and verified.
+        keepRaw.add(raw);
+      }
+    }
+
+    if (!dryRun && purgedIds.isNotEmpty) {
+      await prefs.setStringList(_ordersKey, keepRaw);
+      await statusStore.removeStatuses(purgedIds);
+    }
+    return purgedIds.length;
+  }
+
   Future<List<KioskOrder>> getOrders() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getStringList(_ordersKey) ?? const [];
@@ -263,6 +308,7 @@ class KioskOrderRepository {
     required String reason,
     String? orderType,
     String? paymentMethod,
+    String? customerName,
   }) async {
     final trimmedReason = reason.trim();
     if (trimmedReason.isEmpty) {
@@ -299,6 +345,8 @@ class KioskOrderRepository {
               ? current.copyWith(
                   orderType: orderType,
                   paymentMethod: paymentMethod,
+                  customerName: customerName,
+                  clearCustomerName: customerName != null && customerName.trim().isEmpty,
                   items: List.unmodifiable(items),
                   total: items.fold<int>(
                     0,

@@ -181,6 +181,7 @@ class KioskCategoryPage extends StatelessWidget {
                 width: 360,
                 child: KioskOrderPanel(
                   cart: cart,
+                  onEditItem: (index) => _editCartItem(context, index),
                   onCheckout: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -203,6 +204,91 @@ class KioskCategoryPage extends StatelessWidget {
   ) async {
     await addKioskProductToCart(context, product, cart);
   }
+
+  Future<void> _editCartItem(BuildContext context, int index) async {
+    await editKioskCartItem(context, cart, index);
+  }
+}
+
+
+Future<void> editKioskCartItem(BuildContext context, KioskCart cart, int index) async {
+  if (index < 0 || index >= cart.items.length) return;
+  final existing = cart.items[index];
+  final product = existing.product;
+
+  KioskSize? selectedSize = existing.size;
+  KioskVariant? selectedVariant = existing.variant;
+
+  if (product.hasSizes) {
+    selectedSize = await showModalBottomSheet<KioskSize>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _DrinkSizeSheet(product: product),
+    );
+    if (!context.mounted || selectedSize == null) return;
+  }
+
+  if (product.hasVariants) {
+    selectedVariant = await showModalBottomSheet<KioskVariant>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ProductVariantSheet(product: product),
+    );
+    if (!context.mounted || selectedVariant == null) return;
+  }
+
+  final automaticOptions = product.options
+      .where((option) => option.automatic)
+      .map((option) => KioskOption(
+            id: option.id,
+            name: option.name,
+            price: option.price,
+            kitchenPrepared: option.kitchenPrepared,
+            automatic: true,
+          ))
+      .toList(growable: false);
+  final selectableOptions = product.options
+      .where((option) => !option.automatic)
+      .toList(growable: false);
+  final needsCustomization = selectableOptions.isNotEmpty ||
+      product.productType.toLowerCase() == 'drink';
+
+  List<KioskOption> selectedOptions;
+  int? sugarLevel = existing.sugarLevel;
+  if (needsCustomization) {
+    final selection = await showModalBottomSheet<_KioskCustomizationSelection>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _ProductAddOnsSheet(
+        product: product,
+        initialItem: existing,
+        editMode: true,
+      ),
+    );
+    if (!context.mounted || selection == null) return;
+    selectedOptions = selection.options;
+    sugarLevel = selection.sugarLevel;
+  } else {
+    selectedOptions = existing.options
+        .where((option) => !option.automatic)
+        .toList(growable: false);
+  }
+
+  if (!cart.canAdd(product, size: selectedSize, variant: selectedVariant)) return;
+  cart.updateAt(
+    index,
+    KioskCartItem(
+      product: product,
+      size: selectedSize,
+      variant: selectedVariant,
+      quantity: existing.quantity,
+      options: List.unmodifiable([...automaticOptions, ...selectedOptions]),
+      drinkTemperature: existing.drinkTemperature,
+      sugarLevel: product.productType.toLowerCase() == 'drink'
+          ? (sugarLevel ?? 100)
+          : null,
+    ),
+  );
 }
 
 Future<void> addKioskProductToCart(
@@ -408,8 +494,14 @@ class _KioskCustomizationSelection {
 
 class _ProductAddOnsSheet extends StatefulWidget {
   final KioskProduct product;
+  final KioskCartItem? initialItem;
+  final bool editMode;
 
-  const _ProductAddOnsSheet({required this.product});
+  const _ProductAddOnsSheet({
+    required this.product,
+    this.initialItem,
+    this.editMode = false,
+  });
 
   @override
   State<_ProductAddOnsSheet> createState() => _ProductAddOnsSheetState();
@@ -424,14 +516,24 @@ class _ProductAddOnsSheetState extends State<_ProductAddOnsSheet> {
   @override
   void initState() {
     super.initState();
-    _selected = widget.product.options
-        .where((option) => option.autoApply)
-        .map((option) => option.id)
-        .toSet();
+    final initialOptions = widget.initialItem?.options ?? const <KioskOption>[];
+    _selected = widget.editMode
+        ? initialOptions
+            .where((option) => !option.automatic)
+            .map((option) => option.id)
+            .toSet()
+        : widget.product.options
+            .where((option) => option.autoApply)
+            .map((option) => option.id)
+            .toSet();
     _quantities = {
-      for (final option in widget.product.options.where((option) => option.autoApply))
-        option.id: 1,
+      for (final option in widget.product.options.where((option) => !option.automatic))
+        option.id: initialOptions.any((selected) => selected.id == option.id)
+            ? initialOptions.firstWhere((selected) => selected.id == option.id).quantity
+            : 1,
     };
+    _sugarLevel = widget.initialItem?.sugarLevel ?? 100;
+    _showAddOns = widget.editMode && _selected.isNotEmpty;
   }
 
   @override

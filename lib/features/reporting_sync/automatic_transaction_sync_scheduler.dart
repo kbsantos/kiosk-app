@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'reporting_sync_service.dart';
 import 'automatic_transaction_sync_settings.dart';
+import '../kiosk/orders/kiosk_order_repository.dart';
+import 'reporting_sync_status_store.dart';
+import 'transaction_retention_settings.dart';
 
 /// Runs reporting sync at the locally configured daily times while the kiosk
 /// app is running. A due slot is retried using the configured interval until
@@ -17,6 +20,10 @@ class AutomaticTransactionSyncScheduler with WidgetsBindingObserver {
   final ReportingSyncService _syncService;
   final AutomaticTransactionSyncSettingsRepository _settingsRepository =
       AutomaticTransactionSyncSettingsRepository();
+  final TransactionRetentionSettingsRepository _retentionSettingsRepository =
+      TransactionRetentionSettingsRepository();
+  final KioskOrderRepository _orderRepository = KioskOrderRepository();
+  final ReportingSyncStatusStore _statusStore = ReportingSyncStatusStore();
   Timer? _timer;
   bool _checking = false;
   bool _syncing = false;
@@ -76,6 +83,17 @@ class AutomaticTransactionSyncScheduler with WidgetsBindingObserver {
           if (result.isSuccess) {
             await prefs.setBool(slotKey, true);
             await prefs.remove(attemptKey);
+            final retention = await _retentionSettingsRepository.load();
+            if (retention.automaticPurgeEnabled) {
+              final removed = await _orderRepository.purgeOldSyncedTransactions(
+                olderThan: DateTime.now().subtract(
+                  Duration(days: retention.retentionDays),
+                ),
+                statusStore: _statusStore,
+              );
+              await _retentionSettingsRepository.recordPurge(removed);
+              debugPrint('Automatic transaction retention purge removed $removed local transaction(s).');
+            }
             debugPrint(
                 'Automatic transaction sync (${slot.name}) complete: ${result.summary}.');
           } else {

@@ -56,6 +56,8 @@ class KioskOrder {
     KioskOrderStatus? status,
     String? orderType,
     String? paymentMethod,
+    String? customerName,
+    bool clearCustomerName = false,
     String? paymentStatus,
     String? cancellationReason,
     String? orderMode,
@@ -67,7 +69,11 @@ class KioskOrder {
     return KioskOrder(
       id: id,
       orderNumber: orderNumber,
-      customerName: customerName,
+      customerName: clearCustomerName
+          ? null
+          : (customerName?.trim().isNotEmpty == true
+              ? customerName!.trim()
+              : this.customerName),
       createdAt: createdAt,
       orderType: orderType ?? this.orderType,
       paymentMethod: paymentMethod ?? this.paymentMethod,

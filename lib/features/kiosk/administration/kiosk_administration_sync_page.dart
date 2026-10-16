@@ -4,6 +4,8 @@ import '../orders/kiosk_order_repository.dart';
 import '../../reporting_sync/reporting_sync_result.dart';
 import '../../reporting_sync/reporting_sync_service.dart';
 import '../../reporting_sync/automatic_transaction_sync_settings.dart';
+import '../../reporting_sync/reporting_sync_status_store.dart';
+import '../../reporting_sync/transaction_retention_settings.dart';
 import '../../catalog/store_catalog_sync_service.dart';
 
 /// Administrative synchronization tools.
@@ -30,6 +32,9 @@ class _KioskAdministrationSyncPageState
       const AutomaticTransactionSyncSettings();
   bool _autoSyncSettingsLoading = true;
   bool _autoSyncSettingsSaving = false;
+  final TransactionRetentionSettingsRepository _retentionRepository =
+      TransactionRetentionSettingsRepository();
+  final ReportingSyncStatusStore _syncStatusStore = ReportingSyncStatusStore();
 
   bool _catalogSyncing = false;
   bool _historicalSyncing = false;
@@ -604,6 +609,18 @@ class _KioskAdministrationSyncPageState
 
       if (!mounted) return;
 
+      if (result.isSuccess) {
+        final retention = await _retentionRepository.load();
+        if (retention.automaticPurgeEnabled) {
+          final removed = await _orderRepository.purgeOldSyncedTransactions(
+            olderThan: DateTime.now().subtract(
+              Duration(days: retention.retentionDays),
+            ),
+            statusStore: _syncStatusStore,
+          );
+          await _retentionRepository.recordPurge(removed);
+        }
+      }
       await _showReportingResult(result);
     } catch (error) {
       if (!mounted) return;

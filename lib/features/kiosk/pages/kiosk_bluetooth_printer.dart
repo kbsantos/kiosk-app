@@ -188,7 +188,9 @@ class KioskBluetoothPrinter {
       line('MILKTEA - COFFEE');
       line();
       line(order.orderNumber);
-      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
+      if (order.customerName?.isNotEmpty == true) {
+        line('CUSTOMER: ${order.customerName}');
+      }
       line(_time(order.createdAt));
       add('\x1Ba\x00');
       line();
@@ -222,11 +224,16 @@ class KioskBluetoothPrinter {
     // Barista/Kitchen copies. The separator lines provide the visual boundary.
     if (includeBaristaCopy && baristaItems.isNotEmpty) {
       line('-' * width);
-      add('\x1BE\x01');
-      line('BARISTA COPY');
-      add('\x1BE\x00');
-      line('ORDER ${order.orderNumber}');
-      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
+      // Make the order number the most prominent element on production copies.
+      add('\x1Ba\x01');
+      add('\x1B!\x30'); // Emphasized, double-height and double-width text.
+      line(order.orderNumber);
+      add('\x1B!\x00');
+      line('BARISTA : ${_time(DateTime.now())}');
+      add('\x1Ba\x00');
+      if (order.customerName?.isNotEmpty == true) {
+        line('CUSTOMER: ${order.customerName}');
+      }
       line('-' * width);
 
       for (final item in baristaItems) {
@@ -234,7 +241,8 @@ class KioskBluetoothPrinter {
         if (item.size != null) {
           final sizeText = '${item.size!.name}'
               '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}';
-          final sugarText = item.sugarLevel == null ? null : 'SUGAR: ${item.sugarLevel}%';
+          final sugarText =
+              item.sugarLevel == null ? null : 'SUGAR: ${item.sugarLevel}%';
           if (sugarText == null) {
             line('  $sizeText');
           } else {
@@ -244,7 +252,8 @@ class KioskBluetoothPrinter {
           line('  SUGAR: ${item.sugarLevel}%');
         }
         if (item.variant != null) line('  ${item.variant!.name}');
-        for (final option in item.options.where((option) => !option.automatic)) {
+        for (final option
+            in item.options.where((option) => !option.automatic)) {
           line('  + ${option.displayLabel}');
         }
       }
@@ -252,11 +261,16 @@ class KioskBluetoothPrinter {
 
     if (includeKitchenCopy && kitchenItems.isNotEmpty) {
       line('-' * width);
-      add('\x1BE\x01');
-      line('KITCHEN COPY');
-      add('\x1BE\x00');
-      line('ORDER ${order.orderNumber}');
-      if (order.customerName?.isNotEmpty == true) line('CUSTOMER: ${order.customerName}');
+      // Match the barista header so staff can identify the order at a glance.
+      add('\x1Ba\x01');
+      add('\x1B!\x30'); // Emphasized, double-height and double-width text.
+      line(order.orderNumber);
+      add('\x1B!\x00');
+      line('KITCHEN : ${_time(DateTime.now())}');
+      add('\x1Ba\x00');
+      if (order.customerName?.isNotEmpty == true) {
+        line('CUSTOMER: ${order.customerName}');
+      }
       line('-' * width);
 
       for (final item in kitchenItems) {
@@ -266,7 +280,8 @@ class KioskBluetoothPrinter {
               '${item.size!.displayVolume == null ? '' : ' - ${item.size!.displayVolume}'}');
         }
         if (item.variant != null) line('  ${item.variant!.name}');
-        for (final option in item.options.where((option) => !option.automatic)) {
+        for (final option
+            in item.options.where((option) => !option.automatic)) {
           line('  + ${option.displayLabel}');
         }
       }
@@ -274,8 +289,7 @@ class KioskBluetoothPrinter {
 
     // Keep the production copy compact, but leave a small trailing feed so
     // the thermal printer advances the paper far enough for a clean tear/cut.
-    final hasProductionCopy =
-        (includeBaristaCopy && baristaItems.isNotEmpty) ||
+    final hasProductionCopy = (includeBaristaCopy && baristaItems.isNotEmpty) ||
         (includeKitchenCopy && kitchenItems.isNotEmpty);
     if (hasProductionCopy) {
       line();

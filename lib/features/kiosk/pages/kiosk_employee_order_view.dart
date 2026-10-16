@@ -270,6 +270,7 @@ class _KioskEmployeeOrderViewState extends State<KioskEmployeeOrderView> {
               width: 360,
               child: KioskOrderPanel(
                 cart: widget.cart,
+                onEditItem: (index) => editKioskCartItem(context, widget.cart, index),
                 onCheckout: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(

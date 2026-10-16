@@ -382,6 +382,12 @@ class KioskCart extends ChangeNotifier {
     notifyListeners();
   }
 
+  void updateAt(int index, KioskCartItem item) {
+    if (index < 0 || index >= _items.length) return;
+    _items[index] = item;
+    notifyListeners();
+  }
+
   void removeAt(int index) {
     if (index < 0 || index >= _items.length) return;
     _items.removeAt(index);
